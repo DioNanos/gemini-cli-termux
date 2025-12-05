@@ -65,14 +65,19 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ## Tests
 
-Smoke suite:
+- Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
+- Latest report:
+  [`GEMINI_TEST_REPORT_v0.21.0.md`](./GEMINI_TEST_REPORT_v0.21.0.md)
+  - 33/37 pass (89%); gaps: `gemini models list`, `gemini hooks` (x2),
+    `gemini auth status` not implemented.
+  - Package/Binary: 6/6 pass; Termux-specific: 8/8 pass; PTY optional module
+    missing but non-blocking.
 
-```bash
-npm run test:termux
-```
+## Changelog (Termux)
 
-Checks version, help output, and presence of the Termux clipboard patch inside
-the bundle.
+- **0.21.0-termux** (latest): upstream 0.21.0 sync; Termux patches retained;
+  bundle export fix for `createInkStdio`; test report v0.21.0.
+- **0.20.3-termux** (stable): previous release, kept as fallback dist-tag.
 
 ## Upstream Tracking
 
