@@ -27,7 +27,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.21.0-termux (latest)
+gemini --version  # expected: 0.20.1-termux (latest)
 ```
 
 Build from source:
@@ -60,24 +60,17 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ### Versions
 
-- **latest**: 0.21.0-termux (this build)
-- **previous/stable**: 0.20.3-termux (current npm dist-tag until publish)
+- **latest**: 0.21.1-termux (this build)
+- **stable**: 0.21.1-termux
 
 ## Tests
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
-- Latest report:
-  [`GEMINI_TEST_REPORT_v0.21.0.md`](./GEMINI_TEST_REPORT_v0.21.0.md)
-  - 33/37 pass (89%); gaps: `gemini models list`, `gemini hooks` (x2),
-    `gemini auth status` not implemented.
-  - Package/Binary: 6/6 pass; Termux-specific: 8/8 pass; PTY optional module
-    missing but non-blocking.
+- Latest report: pending rerun for 0.21.1-termux (previous 0.21.0-termux: 33/37 pass; gaps: `gemini models list`, `gemini hooks` (x2), `gemini auth status`; package/binary 6/6, Termux 8/8, PTY optional module missing but non-blocking).
 
 ## Changelog (Termux)
 
-- **0.21.0-termux** (latest): upstream 0.21.0 sync; Termux patches retained;
-  bundle export fix for `createInkStdio`; test report v0.21.0.
-- **0.20.3-termux** (stable): previous release, kept as fallback dist-tag.
+- **0.21.1-termux** (latest/stable): upstream main sync; Termux patches retained; bundle export fix for `createInkStdio`; tests pending refresh.
 
 ## Upstream Tracking
 

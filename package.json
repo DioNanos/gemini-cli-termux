@@ -1,7 +1,6 @@
 {
-  "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.21.0-termux",
-  "description": "Gemini CLI Termux Edition (Android-compatible fork)",
+  "name": "@google/gemini-cli",
+  "version": "0.21.1-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -9,17 +8,13 @@
   "workspaces": [
     "packages/*"
   ],
-  "private": false,
+  "private": "true",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
+    "url": "git+https://github.com/google-gemini/gemini-cli.git"
   },
-  "bugs": {
-    "url": "https://github.com/DioNanos/gemini-cli-termux/issues"
-  },
-  "homepage": "https://github.com/DioNanos/gemini-cli-termux#readme",
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.20.0-nightly.20251201.2fe609cb6"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.21.0-nightly.20251202.2d935b379"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",
@@ -51,7 +46,6 @@
     "test:integration:sandbox:none": "cross-env GEMINI_SANDBOX=false vitest run --root ./integration-tests",
     "test:integration:sandbox:docker": "cross-env GEMINI_SANDBOX=docker npm run build:sandbox && cross-env GEMINI_SANDBOX=docker vitest run --root ./integration-tests",
     "test:integration:sandbox:podman": "cross-env GEMINI_SANDBOX=podman vitest run --root ./integration-tests",
-    "test:termux": "node test-gemini/smoke.mjs",
     "lint": "eslint . --ext .ts,.tsx && eslint integration-tests && eslint scripts",
     "lint:fix": "eslint . --fix --ext .ts,.tsx && eslint integration-tests --fix && eslint scripts --fix && npm run format",
     "lint:ci": "npm run lint:all",

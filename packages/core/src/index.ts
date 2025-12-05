@@ -20,6 +20,8 @@ export * from './confirmation-bus/message-bus.js';
 
 // Export Commands logic
 export * from './commands/extensions.js';
+export * from './commands/restore.js';
+export * from './commands/types.js';
 
 // Export Core Logic
 export * from './core/client.js';
@@ -42,6 +44,8 @@ export * from './code_assist/oauth2.js';
 export * from './code_assist/server.js';
 export * from './code_assist/types.js';
 export * from './core/apiKeyCredentialStorage.js';
+export * from './hooks/index.js';
+export * from './telemetry/index.js';
 
 // Export utilities
 export * from './utils/paths.js';
@@ -77,12 +81,14 @@ export * from './utils/events.js';
 export * from './utils/extensionLoader.js';
 export * from './utils/package.js';
 export * from './utils/stdio.js';
+export * from './utils/stdio.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';
 export * from './services/gitService.js';
 export * from './services/chatRecordingService.js';
 export * from './services/fileSystemService.js';
+export * from './services/contextManager.js';
 
 // Export IDE specific logic
 export * from './ide/ide-client.js';
