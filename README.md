@@ -27,7 +27,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.20.3-termux
+gemini --version  # expected: 0.21.0-termux (latest)
 ```
 
 Build from source:
@@ -57,6 +57,11 @@ node bundle/gemini.js --version
 ```bash
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
+
+### Versions
+
+- **latest**: 0.21.0-termux (this build)
+- **previous/stable**: 0.20.3-termux (current npm dist-tag until publish)
 
 ## Tests
 
