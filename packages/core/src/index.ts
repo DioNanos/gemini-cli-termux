@@ -88,6 +88,7 @@ export * from './services/fileDiscoveryService.js';
 export * from './services/gitService.js';
 export * from './services/chatRecordingService.js';
 export * from './services/fileSystemService.js';
+export * from './services/sessionSummaryUtils.js';
 export * from './services/contextManager.js';
 
 // Export IDE specific logic
@@ -106,6 +107,7 @@ export * from './tools/tools.js';
 export * from './tools/tool-error.js';
 export * from './tools/tool-registry.js';
 export * from './tools/tool-names.js';
+export * from './resources/resource-registry.js';
 
 // Export prompt logic
 export * from './prompts/mcp-prompts.js';
