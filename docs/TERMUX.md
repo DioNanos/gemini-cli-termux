@@ -15,7 +15,7 @@ Android.
 npm install -g @mmmbuto/gemini-cli-termux
 
 gemini --version
-# expected: 0.21.2-termux (latest)
+# expected: 0.21.3-termux (latest)
 ```
 
 Features of the npm build

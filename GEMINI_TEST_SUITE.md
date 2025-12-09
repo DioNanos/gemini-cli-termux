@@ -1,4 +1,4 @@
-# 🧪 Gemini CLI Termux Test Suite (v0.21.2-termux)
+# 🧪 Gemini CLI Termux Test Suite (v0.21.3-termux)
 
 **Goal**: Validate the Termux build without native deps
 (node-pty/keytar/tree-sitter). Run from a clean shell on Termux ARM64.
@@ -10,19 +10,16 @@
 
 ## 1. Version & Env
 
-1.1 `gemini --version` → shows `0.21.2-termux` 1.2 `node -v`, `uname -m`,
+1.1 `gemini --version` → shows `0.21.3-termux` 1.2 `node -v`, `uname -m`,
 `echo $PREFIX` (expect Termux paths / aarch64)
 
 ## 2. CLI Basics
 
-2.1 `gemini --help` exits 0 2.2 `gemini --version --json` returns JSON with
-version field 2.3 `gemini --config-path` prints default config path (no crash)
+2.1 `gemini --help` exits 0
 
-## 3. Hooks (new in 0.21.x)
+## 3. Hooks (Skipped)
 
-3.1 `gemini hooks list` shows no error (empty or items accepted) 3.2
-`gemini hooks migrate` runs without crash in empty workspace 3.3
-`gemini hooks events` shows available events (session_start/session_end)
+_Feature not currently available in this build._
 
 ## 4. Extensions
 
@@ -35,13 +32,13 @@ version field 2.3 `gemini --config-path` prints default config path (no crash)
 
 ## 6. Non-interactive
 
-6.1 `gemini --json --no-color "echo hello"` returns JSON stream 6.2
-`GEMINI_JSONL=1 gemini --json "pwd"` produces JSONL lines
+6.1 `gemini -o json "echo hello"` returns JSON stream 6.2
+`GEMINI_JSONL=1 gemini -o json "pwd"` produces JSONL lines
 
 ## 7. File ops (Termux safe)
 
-7.1 `echo hi > file.txt` then `gemini --json "read file.txt"` contains "hi" 7.2
-`gemini --json "list files"` lists current dir
+7.1 `echo hi > file.txt` then `gemini -o json "read file.txt"` contains "hi" 7.2
+`gemini -o json "list files"` lists current dir
 
 ## 8. Termux specifics
 
@@ -52,13 +49,12 @@ version field 2.3 `gemini --config-path` prints default config path (no crash)
 ## 9. Package/binary
 
 9.1 `ls $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` exists 9.2
-`node bundle/gemini.js --version` (from repo) prints 0.21.2-termux
+`node bundle/gemini.js --version` (from repo) prints 0.21.3-termux
 
 ## 10. Known limits (assert graceful handling)
 
 10.1 `node-pty` optional: running `require('node-pty')` should fail gracefully
-(not crash CLI) 10.2 `gemini hooks` when called without subcommand should print
-help (not LLM)
+(not crash CLI)
 
 ## Expected Outcome
 

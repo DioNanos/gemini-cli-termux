@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.21.2-termux",
+  "version": "0.21.3-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -8,7 +8,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "private": false,
+  "private": "false",
   "repository": {
     "type": "git",
     "url": "https://github.com/DioNanos/gemini-cli-termux.git"

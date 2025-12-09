@@ -1,4 +1,4 @@
-# Termux Patches (0.21.2-termux)
+# Termux Patches (0.21.3-termux)
 
 Minimal changes to run `gemini-cli` on Android/Termux ARM64 without native deps.
 
@@ -24,4 +24,4 @@ Minimal changes to run `gemini-cli` on Android/Termux ARM64 without native deps.
 
 No functional changes to upstream features; only compatibility/export fixes.
 
-**Version**: 0.21.2-termux
+**Version**: 0.21.3-termux
