@@ -96,8 +96,8 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ### Versions
 
-- **latest**: 0.21.3-termux (this build)
-- **stable**: 0.21.3-termux
+- **latest**: 0.21.4-termux (this build)
+- **stable**: 0.21.4-termux
 
 ## Tests
 
