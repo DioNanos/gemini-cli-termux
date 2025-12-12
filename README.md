@@ -103,7 +103,7 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
 - Latest report:
-  [`GEMINI_TEST_REPORT_v0.21.3.md`](./GEMINI_TEST_REPORT_v0.21.3.md)
+  [`GEMINI_TEST_REPORT_v0.21.3.md`](./GEMINI_TEST_REPORT_v0.21.4.md)
   - PASS with warnings (node-pty optional missing log; `--version --json`
     outputs plain string; config-path flag unsupported; extensions settings
     needs subcommand).
