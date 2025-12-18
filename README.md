@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.22.2-termux (latest)
+gemini --version  # expected: 0.22.2-termux (npm latest); 0.22.7-termux available on testing channel
 ```
 
 Build from source:
@@ -64,8 +64,11 @@ node bundle/gemini.js --version
 
 ### 📚 Complete Documentation
 
-- **[Test Results](./GEMINI_TEST_REPORT_v0.22.2.md)** - Comprehensive test
-  report with analysis
+- **Test Results**
+  - [GEMINI_TEST_REPORT_v0.22.7.md](./GEMINI_TEST_REPORT_v0.22.7.md) — testing
+    channel
+  - [GEMINI_TEST_REPORT_v0.22.2.md](./GEMINI_TEST_REPORT_v0.22.2.md) — stable
+    baseline
 - **[Test Suite](./GEMINI_TEST_SUITE.md)** - Test methodology and checklist
 - **[Patches & Fixes](./docs/patches/)** - Known issues and workarounds
 
@@ -104,8 +107,8 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ### Versions
 
-- **latest**: 0.22.7-termux (testing channel until promoted)
-- **stable**: 0.22.2-termux
+- **latest / stable**: 0.22.2-termux (default npm dist-tag)
+- **testing**: 0.22.7-termux (adds Gemini 3 Flash preview; install explicitly)
 - **previous**: 0.21.4-termux
 
 ## Tests
