@@ -1,11 +1,11 @@
 {
-  "name": "@google/gemini-cli",
-  "version": "0.21.0-nightly.20251218.739c02bd6",
-  "description": "Gemini CLI",
+  "name": "@mmmbuto/gemini-cli-termux",
+  "version": "0.24.0-termux",
+  "description": "Gemini CLI - Termux Edition",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/google-gemini/gemini-cli.git"
+    "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "type": "module",
   "main": "dist/index.js",
@@ -26,7 +26,7 @@
     "dist"
   ],
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.21.0-nightly.20251218.739c02bd6"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.24.0-termux"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.11.0",

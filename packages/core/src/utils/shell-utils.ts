@@ -12,35 +12,11 @@ import {
   type SpawnOptionsWithoutStdio,
 } from 'node:child_process';
 import type { Node } from 'web-tree-sitter';
+import { Language, Parser, Query } from 'web-tree-sitter';
 import { loadWasmBinary } from './fileUtils.js';
+import { debugLogger } from './debugLogger.js';
 
 export const SHELL_TOOL_NAMES = ['run_shell_command', 'ShellTool'];
-
-// Polyfill for environments (Node/Termux) missing Uint8Array.fromBase64 / toBase64
-// Apply eagerly and idempotently.
-if (
-  !(Uint8Array as unknown as { fromBase64?: (s: string) => Uint8Array })
-    .fromBase64
-) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (Uint8Array as any).fromBase64 = (str: string): Uint8Array =>
-    Uint8Array.from(Buffer.from(str, 'base64'));
-}
-if (
-  !(Uint8Array.prototype as unknown as { toBase64?: () => string }).toBase64
-) {
-   
-  (Uint8Array.prototype as unknown as { toBase64?: () => string }).toBase64 =
-    function (): string {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return Buffer.from(this as any).toString('base64');
-    };
-}
-
-// Lazy-loaded web-tree-sitter module (avoid importing before polyfill)
-type WebTS = typeof import('web-tree-sitter');
-let Parser: WebTS['Parser'] | null = null;
-let Language: WebTS['Language'] | null = null;
 
 /**
  * An identifier for the shell type.
@@ -61,7 +37,7 @@ export interface ShellConfiguration {
   shell: ShellType;
 }
 
-let bashLanguage: import('web-tree-sitter').Language | null = null;
+let bashLanguage: Language | null = null;
 let treeSitterInitialization: Promise<void> | null = null;
 let treeSitterInitializationError: Error | null = null;
 
@@ -87,11 +63,6 @@ function toError(value: unknown): Error {
 async function loadBashLanguage(): Promise<void> {
   try {
     treeSitterInitializationError = null;
-    if (!Parser || !Language) {
-      const mod = await import('web-tree-sitter');
-      Parser = mod.Parser;
-      Language = mod.Language;
-    }
     const [treeSitterBinary, bashBinary] = await Promise.all([
       loadWasmBinary(
         () =>
@@ -109,12 +80,8 @@ async function loadBashLanguage(): Promise<void> {
       ),
     ]);
 
-    const ParserCtor =
-      Parser as unknown as typeof import('web-tree-sitter').Parser;
-    const LanguageCtor =
-      Language as unknown as typeof import('web-tree-sitter').Language;
-    await ParserCtor.init({ wasmBinary: treeSitterBinary });
-    bashLanguage = await LanguageCtor.load(bashBinary);
+    await Parser.init({ wasmBinary: treeSitterBinary });
+    bashLanguage = await Language.load(bashBinary);
   } catch (error) {
     bashLanguage = null;
     const normalized = toError(error);
@@ -187,8 +154,8 @@ foreach ($commandAst in $commandAsts) {
   'utf16le',
 ).toString('base64');
 
-function createParser(): import('web-tree-sitter').Parser | null {
-  if (!Parser || !bashLanguage) {
+function createParser(): Parser | null {
+  if (!bashLanguage) {
     if (treeSitterInitializationError) {
       throw treeSitterInitializationError;
     }
@@ -196,9 +163,7 @@ function createParser(): import('web-tree-sitter').Parser | null {
   }
 
   try {
-    const ParserCtor =
-      Parser as unknown as typeof import('web-tree-sitter').Parser;
-    const parser = new ParserCtor();
+    const parser = new Parser();
     parser.setLanguage(bashLanguage);
     return parser;
   } catch {
@@ -341,12 +306,38 @@ function parseBashCommandDetails(command: string): CommandParseResult | null {
   }
 
   const details = collectCommandDetails(tree.rootNode, command);
+
+  const hasError =
+    tree.rootNode.hasError ||
+    details.length === 0 ||
+    hasPromptCommandTransform(tree.rootNode);
+
+  if (hasError) {
+    let query = null;
+    try {
+      query = new Query(bashLanguage, '(ERROR) @error (MISSING) @missing');
+      const captures = query.captures(tree.rootNode);
+      const syntaxErrors = captures.map((capture) => {
+        const { node, name } = capture;
+        const type = name === 'missing' ? 'Missing' : 'Error';
+        return `${type} node: "${node.text}" at ${node.startPosition.row}:${node.startPosition.column}`;
+      });
+
+      debugLogger.log(
+        'Bash command parsing error detected for command:',
+        command,
+        'Syntax Errors:',
+        syntaxErrors,
+      );
+    } catch (_e) {
+      // Ignore query errors
+    } finally {
+      query?.delete();
+    }
+  }
   return {
     details,
-    hasError:
-      tree.rootNode.hasError ||
-      details.length === 0 ||
-      hasPromptCommandTransform(tree.rootNode),
+    hasError,
   };
 }
 
