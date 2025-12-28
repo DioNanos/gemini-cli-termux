@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.24.0-termux",
+  "version": "0.24.1-termux",
   "engines": {
     "node": ">=20.0.0"
   },
