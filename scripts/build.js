@@ -18,7 +18,7 @@
 // limitations under the License.
 
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,11 +36,24 @@ execSync('npm run generate', { stdio: 'inherit', cwd: root });
 const isAndroid = process.platform === 'android';
 if (isAndroid) {
   // On Termux skip VSCode companion (esbuild binary mismatch) and focus core/cli/a2a/test-utils
-  const workspaces = [
-    '@google/gemini-cli-core',
-    '@google/gemini-cli',
-    '@google/gemini-cli-test-utils',
+  const workspaceDirs = [
+    'packages/core',
+    'packages/cli',
+    'packages/test-utils',
   ];
+  const workspaces = workspaceDirs.map((workspaceDir) => {
+    const pkgPath = join(root, workspaceDir, 'package.json');
+    try {
+      const pkgJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      return pkgJson?.name || workspaceDir;
+    } catch (error) {
+      console.warn(
+        `Could not read workspace name from ${pkgPath}, using path instead.`,
+        error,
+      );
+      return workspaceDir;
+    }
+  });
   for (const ws of workspaces) {
     execSync(`npm run build --workspace ${ws}`, {
       stdio: 'inherit',
