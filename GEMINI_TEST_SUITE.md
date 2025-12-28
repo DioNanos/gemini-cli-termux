@@ -1,10 +1,9 @@
-# 🧪 Gemini CLI Termux Test Suite (v0.22.7-termux)
+# 🧪 Gemini CLI Termux Test Suite (v0.24.0-termux)
 
 **Goal**: Validate the Termux build without native deps
 (node-pty/keytar/tree-sitter). Run from a clean shell on Termux ARM64.
 
-**Version**: 0.22.7-termux (Upstream merged: 21 commits including Gemini 3
-Flash) **Last Updated**: 2025-12-18
+**Version**: 0.24.0-termux **Last Updated**: 2025-12-28
 
 ## 0. Prep
 
@@ -13,7 +12,7 @@ Flash) **Last Updated**: 2025-12-18
 
 ## 1. Version & Env
 
-1.1 `gemini --version` → shows `0.22.7-termux` 1.2 `node -v`, `uname -m`,
+1.1 `gemini --version` → shows `0.24.0-termux` 1.2 `node -v`, `uname -m`,
 `echo $PREFIX` (expect Termux paths / aarch64)
 
 ## 2. CLI Basics
@@ -56,7 +55,7 @@ errors in output
 ## 9. Package/binary
 
 9.1 `ls $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` exists 9.2
-`node bundle/gemini.js --version` (from repo) prints 0.22.7-termux 9.3
+`node bundle/gemini.js --version` (from repo) prints 0.24.0-termux 9.3
 `ls -lh $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` shows ~21MB
 bundle
 
@@ -81,33 +80,53 @@ JSON output or valid Termux-API response
 11.4 **Installation Helpers**: - `make termux-install` runs without error -
 `scripts/termux-setup.sh` completes successfully
 
-## 12. Context Memory (v0.22.3+)
+## 12. Context Memory & Memory Mode (v0.24.0+)
 
-12.1 **Bootstrap from GEMINI.md** Create `~/.gemini/GEMINI.md` with a short
-line, delete `~/.gemini/context_memory/user.json`, run `gemini --version` (or
-start session) → verify `user.json` created with that line mirrored.
+12.1 **Memory Mode UI** Open `/settings` → `Memory` and verify **Memory Mode**
+exists with options: `default`, `jit`, `jit+json`.
 
-12.2 **Autoload toggles** In `/settings`, ensure `Context Memory` options show
-enabled, primary = `GEMINI.md`, and auto-load flags all true. Toggle
-`Auto-load JSON Base` off, restart CLI → `memory` summary should omit
-`base.json` path.
+12.2 **Default mode (GEMINI.md + JSON)** Set `Memory Mode = default`, restart
+CLI. Create `~/.gemini/GEMINI.md` with a short line, delete
+`~/.gemini/context_memory/user.json`, then start a session. Verify:
 
-12.3 **Journal mirror** Run `/save_memory "remember this fact"` in interactive
-mode → check `~/.gemini/context_memory/user.journal.jsonl` appended with one
-record; `user.json` remains compact (≤200 entries).
+- `user.json` is created with a bootstrap entry from GEMINI.md
+- `/memory show` includes `context_memory/user.json` and/or `base.json` blocks
+- `/memory list` includes JSON paths alongside GEMINI.md paths
 
-12.4 **Primary ordering** Set primary to `JSON User`, restart, run `/memory` →
-JSON user block appears before GEMINI.md in the displayed context list.
+  12.3 **JIT mode (GEMINI.md only)** Set `Memory Mode = jit`, restart CLI.
+  Verify:
 
-12.5 **Read-only base toggle** With `Allow Base Memory Writes` OFF,
-`/save_memory {"target":"base"}` should fail; turn it ON then retry and see
-entry in `base.json`.
+- `/memory show` does **not** include `context_memory/*.json`
+- `/memory list` shows only GEMINI.md files
+- JSON files are not created or modified during startup
 
-12.6 **JSON validity** Verify `~/.gemini/context_memory/base.json` and
-`user.json` are valid JSON:
-`node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.gemini/context_memory/base.json', 'utf8')); console.log('OK')"`
+  12.4 **JIT + JSON** Set `Memory Mode = jit+json`, restart CLI. Verify:
 
-## 13. Gemini 3 Flash (NEW v0.22.7) ⚡⚡⚡
+- `/memory show` includes JSON blocks again
+- `/memory list` includes JSON paths
+- `/memory refresh` succeeds and keeps JSON in the combined output
+
+  12.5 **Autoload toggles** In `/settings → Memory → Context Memory`, ensure
+  primary = `GEMINI.md`, and auto-load flags are true. Toggle
+  `Auto-load JSON Base` off, restart CLI → `/memory show` should omit
+  `base.json` content.
+
+  12.6 **Primary ordering** Set primary to `JSON User`, restart, run `/memory` →
+  JSON user block appears before GEMINI.md in the displayed context list.
+
+  12.7 **Journal mirror** Run `/save_memory "remember this fact"` in interactive
+  mode → check `~/.gemini/context_memory/user.journal.jsonl` appended with one
+  record; `user.json` remains compact (≤200 entries).
+
+  12.8 **Read-only base toggle** With `Allow Base Memory Writes` OFF,
+  `/save_memory {"target":"base"}` should fail; turn it ON then retry and see
+  entry in `base.json`.
+
+  12.9 **JSON validity** Verify `~/.gemini/context_memory/base.json` and
+  `user.json` are valid JSON:
+  `node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.gemini/context_memory/base.json', 'utf8')); console.log('OK')"`
+
+## 13. Gemini 3 Flash (Upstream) ⚡⚡⚡
 
 **CRITICAL**: Primary new feature from upstream merge.
 
@@ -129,7 +148,7 @@ Correct sum (5050) or reasonable attempt
 13.5 **Settings integration**: Run `gemini` interactively, `/settings`, check if
 Gemini 3 Flash appears in model list
 
-## 14. Agent TOML Parser (NEW v0.22.7)
+## 14. Agent TOML Parser (Upstream)
 
 14.1 **TOML loader presence**: `ls packages/core/dist/agents/toml-loader.js`
 exists
@@ -138,7 +157,7 @@ exists
 `bash      cat > test-agent.toml << 'EOF'      name = "test-agent"      description = "Test agent"      version = "0.1.0"      EOF      `
 Verify CLI can parse it (check logs or settings for agent recognition)
 
-## 15. Auth Logout (NEW v0.22.7)
+## 15. Auth Logout (Upstream)
 
 15.1 **Command availability**: `gemini --help | grep logout` shows
 `/auth logout` command
@@ -195,7 +214,7 @@ verify memory doesn't grow excessively
   must still work.
 - **Gemini 3 Flash** responds correctly and quickly.
 - **All Termux patches** preserved and functional.
-- **No regressions** from previous version 0.22.6-termux.
+- **No regressions** from previous stable version.
 
 ## Known Issues / Limitations
 
