@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.22.2-termux (npm latest); 0.22.7-termux available on testing channel
+gemini --version  # expected: 0.24.0-termux (npm latest)
 ```
 
 Build from source:
@@ -107,24 +107,21 @@ See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
 
-### Versions
+### Changelog (0.24.0-termux)
 
-- **latest / stable**: 0.22.2-termux (default npm dist-tag)
-- **testing**: 0.22.7-termux (adds Gemini 3 Flash preview; install explicitly)
-- **previous**: 0.21.4-termux
+- **Memory Mode presets** in `/settings → Memory` (default / jit / jit+json).
+- **JIT + JSON** combined memory support (ContextManager now loads JSON memory).
+- **Memory settings reorganized** into a dedicated section; MCP import
+  categories hidden from UI.
+- **Docs & tests refreshed** for 0.24.0-termux.
 
 ## Tests
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
-- Latest reports:
-  - [`GEMINI_TEST_REPORT_v0.22.7.md`](./GEMINI_TEST_REPORT_v0.22.7.md) — testing
-    channel, PASS (static verification) on Termux: version/env, CLI basics,
-    non-interactive JSON, Termux-API, context memory, Gemini 3 Flash, agent TOML
-    loader, patches integrity. Agent shell security filter blocks complex
-    `run_shell_command` calls in this environment (known restriction); CLI
-    itself verified via `--version`.
-  - [`GEMINI_TEST_REPORT_v0.22.2.md`](./GEMINI_TEST_REPORT_v0.22.2.md) — stable
-    baseline, PASS with expected optional-native warnings.
+- Latest report:
+  - [`GEMINI_TEST_REPORT_v0.24.0.md`](./GEMINI_TEST_REPORT_v0.24.0.md) — PASS
+    (partial execution; interactive steps pending). Notes include
+    non‑interactive tool confirmation limits and Termux shell parser warnings.
 
 ## Termux-API Integration
 
@@ -136,9 +133,8 @@ features.
 
 - The Termux fork ships JSON context memory at
   `~/.gemini/context_memory/{base.json,user.json,user.journal.jsonl}`. In
-  `/settings → Context Memory` you can toggle autoload, choose the primary
-  source, and (if needed) enable writes to `base.json` via
-  `Allow Base Memory Writes`.
+  `/settings → Memory` you can select **Memory Mode** (default / jit / jit+json)
+  and adjust Context Memory options (autoload, primary ordering, base writes).
 - TTS notifications are controlled by
   `/settings → Notifications → Enable TTS Notifications`. When disabled,
   `termux-tts-speak` is blocked even if an agent asks for it. These behaviors
