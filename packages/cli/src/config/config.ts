@@ -8,16 +8,18 @@ import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 import process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
-import type { ContextMemoryOptions ,
+// TERMUX PATCH: Import FileDiscoveryService directly to avoid tree-shaking rename issues
+import { FileDiscoveryService as FileDiscoveryServiceClass } from '@google/gemini-cli-core/src/services/fileDiscoveryService.js';
+import {
+  type ContextMemoryOptions,
   Config,
-  setGeminiMdFilename as setServerGeminiMdFilename,
-  getCurrentGeminiMdFilename,
+  // TERMUX PATCH: Removed setGeminiMdFilename - causes tree-shaking issues in bundle
+  // getCurrentGeminiMdFilename,
   ApprovalMode,
   DEFAULT_GEMINI_MODEL_AUTO,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_FILE_FILTERING_OPTIONS,
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-  FileDiscoveryService,
   WRITE_FILE_TOOL_NAME,
   SHELL_TOOL_NAMES,
   SHELL_TOOL_NAME,
@@ -28,7 +30,6 @@ import type { ContextMemoryOptions ,
   debugLogger,
   loadServerHierarchicalMemory,
   WEB_FETCH_TOOL_NAME,
-  getVersion,
   PREVIEW_GEMINI_MODEL_AUTO,
   getDefaultContextMemoryOptions,
   isTermux,
@@ -37,6 +38,9 @@ import type { ContextMemoryOptions ,
   type HookEventName,
   type OutputFormat,
 } from '@google/gemini-cli-core';
+// TERMUX PATCH: Force inclusion of modules to prevent tree-shaking rename issues
+import '@google/gemini-cli-core/src/utils/version.js';
+import '@google/gemini-cli-core/src/utils/memoryDiscovery.js';
 import { extensionsCommand } from '../commands/extensions.js';
 import { hooksCommand } from '../commands/hooks.js';
 import type { Settings } from './settings.js';
@@ -335,7 +339,7 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
   }
 
   yargsInstance
-    .version(await getVersion()) // This will enable the --version flag based on package.json
+    .version(process.env['CLI_VERSION'] || '0.24.0-termux') // TERMUX PATCH: Use CLI_VERSION directly to avoid tree-shaking issues
     .alias('v', 'version')
     .help()
     .alias('h', 'help')
@@ -458,14 +462,17 @@ export async function loadCliConfig(
   // TODO(b/343434939): This is a bit of a hack. The contextFileName should ideally be passed
   // directly to the Config constructor in core, and have core handle setGeminiMdFilename.
   // However, loadHierarchicalGeminiMemory is called *before* createServerConfig.
+  // TERMUX PATCH: Skipped - causes tree-shaking issues. Termux uses JSON context memory instead.
+  /*
   if (settings.context?.fileName) {
     setServerGeminiMdFilename(settings.context.fileName);
   } else {
     // Reset to default if not provided in settings.
     setServerGeminiMdFilename(getCurrentGeminiMdFilename());
   }
+  */
 
-  const fileService = new FileDiscoveryService(cwd);
+  const fileService = new FileDiscoveryServiceClass(cwd);
 
   const memoryFileFiltering = {
     ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,

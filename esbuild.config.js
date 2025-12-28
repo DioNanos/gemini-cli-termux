@@ -75,6 +75,7 @@ const baseConfig = {
 
 const cliConfig = {
   ...baseConfig,
+  // TERMUX PATCH: Removed keepNames - was causing FileDiscoveryService → FileDiscoveryService2 rename
   banner: {
     js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url); globalThis.__filename = require('url').fileURLToPath(import.meta.url); globalThis.__dirname = require('path').dirname(globalThis.__filename);
 // TERMUX PATCH: clipboardy expects TERMUX__PREFIX but Termux sets PREFIX
