@@ -60,11 +60,37 @@ import { promptForSetting } from './extensions/extensionSettings.js';
 import type { EventEmitter } from 'node:stream';
 import { runExitCleanup } from '../utils/cleanup.js';
 
-function buildContextMemoryOptions(settings: Settings): ContextMemoryOptions {
+type MemoryMode = 'default' | 'jit' | 'jit+json';
+
+function resolveMemoryMode(settings: Settings): {
+  mode: MemoryMode;
+  isExplicit: boolean;
+} {
+  const mode = settings.memory?.mode as MemoryMode | undefined;
+  if (mode === 'default' || mode === 'jit' || mode === 'jit+json') {
+    return { mode, isExplicit: true };
+  }
+  if (settings.experimental?.jitContext) {
+    return { mode: 'jit', isExplicit: false };
+  }
+  return { mode: 'default', isExplicit: false };
+}
+
+function getContextMemorySettings(settings: Settings) {
+  return settings.memory?.contextMemory ?? settings.context?.contextMemory;
+}
+
+function buildContextMemoryOptions(
+  settings: Settings,
+  memoryMode: MemoryMode,
+  memoryModeExplicit: boolean,
+  legacyJitEnabled: boolean,
+): ContextMemoryOptions {
   const defaults = getDefaultContextMemoryOptions();
-  const userPaths = settings.context?.contextMemory?.paths || {};
-  const auto = settings.context?.contextMemory?.autoLoad || {};
-  const mcpImport = settings.context?.contextMemory?.mcpImport;
+  const contextMemory = getContextMemorySettings(settings);
+  const userPaths = contextMemory?.paths || {};
+  const auto = contextMemory?.autoLoad || {};
+  const mcpImport = contextMemory?.mcpImport;
   const defaultMcpImport = defaults.mcpImport ?? {
     enabled: false,
     categories: [],
@@ -72,16 +98,14 @@ function buildContextMemoryOptions(settings: Settings): ContextMemoryOptions {
   };
   const options: ContextMemoryOptions = {
     ...defaults,
-    enabled: settings.context?.contextMemory?.enabled ?? true,
+    enabled: contextMemory?.enabled ?? true,
     primary:
-      (settings.context?.contextMemory?.primary as
-        | 'gemini'
-        | 'jsonBase'
-        | 'jsonUser') ?? 'gemini',
+      (contextMemory?.primary as 'gemini' | 'jsonBase' | 'jsonUser') ??
+      'gemini',
     autoLoadGemini: auto.gemini ?? true,
     autoLoadJsonBase: auto.jsonBase ?? true,
     autoLoadJsonUser: auto.jsonUser ?? true,
-    allowBaseWrite: settings.context?.contextMemory?.allowBaseWrite ?? false,
+    allowBaseWrite: contextMemory?.allowBaseWrite ?? false,
     mcpImport: {
       enabled: mcpImport?.enabled ?? defaultMcpImport.enabled ?? false,
       categories:
@@ -96,6 +120,11 @@ function buildContextMemoryOptions(settings: Settings): ContextMemoryOptions {
       journal: userPaths.journal || defaults.paths.journal,
     },
   };
+  if (memoryModeExplicit) {
+    options.enabled = memoryMode !== 'jit';
+  } else if (legacyJitEnabled) {
+    options.enabled = false;
+  }
   setRuntimeContextMemoryOptions(options);
   return options;
 }
@@ -498,10 +527,20 @@ export async function loadCliConfig(
   });
   await extensionManager.loadExtensions();
 
-  const contextMemoryOptions = buildContextMemoryOptions(settings);
+  const legacyJitEnabled = settings.experimental?.jitContext ?? false;
+  const { mode: memoryMode, isExplicit: memoryModeExplicit } =
+    resolveMemoryMode(settings);
+  const contextMemoryOptions = buildContextMemoryOptions(
+    settings,
+    memoryMode,
+    memoryModeExplicit,
+    legacyJitEnabled,
+  );
   setRuntimeContextMemoryOptions(contextMemoryOptions);
 
-  const experimentalJitContext = settings.experimental?.jitContext ?? false;
+  const experimentalJitContext = memoryModeExplicit
+    ? memoryMode === 'jit' || memoryMode === 'jit+json'
+    : legacyJitEnabled;
 
   let memoryContent = '';
   let fileCount = 0;
@@ -731,7 +770,7 @@ export async function loadCliConfig(
     extensionLoader: extensionManager,
     enableExtensionReloading: settings.experimental?.extensionReloading,
     enableAgents: settings.experimental?.enableAgents,
-    experimentalJitContext: settings.experimental?.jitContext,
+    experimentalJitContext,
     noBrowser: !!process.env['NO_BROWSER'],
     summarizeToolOutput: settings.model?.summarizeToolOutput,
     ideMode,

@@ -1117,12 +1117,7 @@ export class Config {
 
   getUserMemory(): string {
     if (this.experimentalJitContext && this.contextManager) {
-      return [
-        this.contextManager.getGlobalMemory(),
-        this.contextManager.getEnvironmentMemory(),
-      ]
-        .filter(Boolean)
-        .join('\n\n');
+      return this.contextManager.getCombinedMemory();
     }
     return this.userMemory;
   }
