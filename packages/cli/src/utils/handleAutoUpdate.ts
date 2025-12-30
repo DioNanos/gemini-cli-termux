@@ -13,7 +13,7 @@ import { MessageType } from '../ui/types.js';
 import { spawnWrapper } from './spawnWrapper.js';
 import type { spawn } from 'node:child_process';
 
-export function handleAutoUpdate(
+export async function handleAutoUpdate(
   info: UpdateObject | null,
   settings: LoadedSettings,
   projectRoot: string,
@@ -34,7 +34,7 @@ export function handleAutoUpdate(
     return;
   }
 
-  const installationInfo = getInstallationInfo(
+  const installationInfo = await getInstallationInfo(
     projectRoot,
     settings.merged.general?.disableAutoUpdate ?? false,
   );
