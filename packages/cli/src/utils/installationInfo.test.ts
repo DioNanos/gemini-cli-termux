@@ -9,7 +9,11 @@ import { getInstallationInfo, PackageManager } from './installationInfo.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as childProcess from 'node:child_process';
-import { isGitRepository, debugLogger } from '@google/gemini-cli-core';
+import {
+  isGitRepository,
+  debugLogger,
+  getPackageJson,
+} from '@google/gemini-cli-core';
 
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   const actual =
@@ -17,6 +21,7 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   return {
     ...actual,
     isGitRepository: vi.fn(),
+    getPackageJson: vi.fn(),
   };
 });
 
@@ -38,6 +43,7 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 const mockedIsGitRepository = vi.mocked(isGitRepository);
+const mockedGetPackageJson = vi.mocked(getPackageJson);
 const mockedRealPathSync = vi.mocked(fs.realpathSync);
 const mockedExistsSync = vi.mocked(fs.existsSync);
 const mockedExecSync = vi.mocked(childProcess.execSync);
@@ -45,6 +51,7 @@ const mockedExecSync = vi.mocked(childProcess.execSync);
 describe('getInstallationInfo', () => {
   const projectRoot = '/path/to/project';
   let originalArgv: string[];
+  const defaultPackageName = '@google/gemini-cli';
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -52,39 +59,44 @@ describe('getInstallationInfo', () => {
     // Mock process.cwd() for isGitRepository
     vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     vi.spyOn(debugLogger, 'log').mockImplementation(() => {});
+    // Default mock for package name
+    mockedGetPackageJson.mockResolvedValue({
+      name: defaultPackageName,
+      version: '0.24.0',
+    });
   });
 
   afterEach(() => {
     process.argv = originalArgv;
   });
 
-  it('should return UNKNOWN when cliPath is not available', () => {
+  it('should return UNKNOWN when cliPath is not available', async () => {
     process.argv[1] = '';
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
     expect(info.packageManager).toBe(PackageManager.UNKNOWN);
   });
 
-  it('should return UNKNOWN and log error if realpathSync fails', () => {
+  it('should return UNKNOWN and log error if realpathSync fails', async () => {
     process.argv[1] = '/path/to/cli';
     const error = new Error('realpath failed');
     mockedRealPathSync.mockImplementation(() => {
       throw error;
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.UNKNOWN);
     expect(debugLogger.log).toHaveBeenCalledWith(error);
   });
 
-  it('should detect running from a local git clone', () => {
+  it('should detect running from a local git clone', async () => {
     process.argv[1] = `${projectRoot}/packages/cli/dist/index.js`;
     mockedRealPathSync.mockReturnValue(
       `${projectRoot}/packages/cli/dist/index.js`,
     );
     mockedIsGitRepository.mockReturnValue(true);
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.UNKNOWN);
     expect(info.isGlobal).toBe(false);
@@ -93,31 +105,31 @@ describe('getInstallationInfo', () => {
     );
   });
 
-  it('should detect running via npx', () => {
+  it('should detect running via npx', async () => {
     const npxPath = `/Users/test/.npm/_npx/12345/bin/gemini`;
     process.argv[1] = npxPath;
     mockedRealPathSync.mockReturnValue(npxPath);
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.NPX);
     expect(info.isGlobal).toBe(false);
     expect(info.updateMessage).toBe('Running via npx, update not applicable.');
   });
 
-  it('should detect running via pnpx', () => {
+  it('should detect running via pnpx', async () => {
     const pnpxPath = `/Users/test/.pnpm/_pnpx/12345/bin/gemini`;
     process.argv[1] = pnpxPath;
     mockedRealPathSync.mockReturnValue(pnpxPath);
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.PNPX);
     expect(info.isGlobal).toBe(false);
     expect(info.updateMessage).toBe('Running via pnpx, update not applicable.');
   });
 
-  it('should detect running via bunx', () => {
+  it('should detect running via bunx', async () => {
     const bunxPath = `/Users/test/.bun/install/cache/12345/bin/gemini`;
     process.argv[1] = bunxPath;
     mockedRealPathSync.mockReturnValue(bunxPath);
@@ -125,14 +137,14 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.BUNX);
     expect(info.isGlobal).toBe(false);
     expect(info.updateMessage).toBe('Running via bunx, update not applicable.');
   });
 
-  it('should detect Homebrew installation via execSync', () => {
+  it('should detect Homebrew installation via execSync', async () => {
     Object.defineProperty(process, 'platform', {
       value: 'darwin',
     });
@@ -141,7 +153,7 @@ describe('getInstallationInfo', () => {
     mockedRealPathSync.mockReturnValue(cliPath);
     mockedExecSync.mockReturnValue(Buffer.from('gemini-cli')); // Simulate successful command
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(mockedExecSync).toHaveBeenCalledWith(
       'brew list -1 | grep -q "^gemini-cli$"',
@@ -154,7 +166,7 @@ describe('getInstallationInfo', () => {
     );
   });
 
-  it('should fall through if brew command fails', () => {
+  it('should fall through if brew command fails', async () => {
     Object.defineProperty(process, 'platform', {
       value: 'darwin',
     });
@@ -165,7 +177,7 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(mockedExecSync).toHaveBeenCalledWith(
       'brew list -1 | grep -q "^gemini-cli$"',
@@ -176,7 +188,7 @@ describe('getInstallationInfo', () => {
     expect(info.isGlobal).toBe(true);
   });
 
-  it('should detect global pnpm installation', () => {
+  it('should detect global pnpm installation', async () => {
     const pnpmPath = `/Users/test/.pnpm/global/5/node_modules/.pnpm/some-hash/node_modules/@google/gemini-cli/dist/index.js`;
     process.argv[1] = pnpmPath;
     mockedRealPathSync.mockReturnValue(pnpmPath);
@@ -184,17 +196,17 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
     expect(info.packageManager).toBe(PackageManager.PNPM);
     expect(info.isGlobal).toBe(true);
-    expect(info.updateCommand).toBe('pnpm add -g @google/gemini-cli@latest');
+    expect(info.updateCommand).toBe(`pnpm add -g ${defaultPackageName}@latest`);
     expect(info.updateMessage).toContain('Attempting to automatically update');
 
-    const infoDisabled = getInstallationInfo(projectRoot, true);
+    const infoDisabled = await getInstallationInfo(projectRoot, true);
     expect(infoDisabled.updateMessage).toContain('Please run pnpm add');
   });
 
-  it('should detect global yarn installation', () => {
+  it('should detect global yarn installation', async () => {
     const yarnPath = `/Users/test/.yarn/global/node_modules/@google/gemini-cli/dist/index.js`;
     process.argv[1] = yarnPath;
     mockedRealPathSync.mockReturnValue(yarnPath);
@@ -202,19 +214,19 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
     expect(info.packageManager).toBe(PackageManager.YARN);
     expect(info.isGlobal).toBe(true);
     expect(info.updateCommand).toBe(
-      'yarn global add @google/gemini-cli@latest',
+      `yarn global add ${defaultPackageName}@latest`,
     );
     expect(info.updateMessage).toContain('Attempting to automatically update');
 
-    const infoDisabled = getInstallationInfo(projectRoot, true);
+    const infoDisabled = await getInstallationInfo(projectRoot, true);
     expect(infoDisabled.updateMessage).toContain('Please run yarn global add');
   });
 
-  it('should detect global bun installation', () => {
+  it('should detect global bun installation', async () => {
     const bunPath = `/Users/test/.bun/bin/gemini`;
     process.argv[1] = bunPath;
     mockedRealPathSync.mockReturnValue(bunPath);
@@ -222,17 +234,17 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
     expect(info.packageManager).toBe(PackageManager.BUN);
     expect(info.isGlobal).toBe(true);
-    expect(info.updateCommand).toBe('bun add -g @google/gemini-cli@latest');
+    expect(info.updateCommand).toBe(`bun add -g ${defaultPackageName}@latest`);
     expect(info.updateMessage).toContain('Attempting to automatically update');
 
-    const infoDisabled = getInstallationInfo(projectRoot, true);
+    const infoDisabled = await getInstallationInfo(projectRoot, true);
     expect(infoDisabled.updateMessage).toContain('Please run bun add');
   });
 
-  it('should detect local installation and identify yarn from lockfile', () => {
+  it('should detect local installation and identify yarn from lockfile', async () => {
     const localPath = `${projectRoot}/node_modules/.bin/gemini`;
     process.argv[1] = localPath;
     mockedRealPathSync.mockReturnValue(localPath);
@@ -243,14 +255,14 @@ describe('getInstallationInfo', () => {
       (p) => p === path.join(projectRoot, 'yarn.lock'),
     );
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.YARN);
     expect(info.isGlobal).toBe(false);
     expect(info.updateMessage).toContain('Locally installed');
   });
 
-  it('should detect local installation and identify pnpm from lockfile', () => {
+  it('should detect local installation and identify pnpm from lockfile', async () => {
     const localPath = `${projectRoot}/node_modules/.bin/gemini`;
     process.argv[1] = localPath;
     mockedRealPathSync.mockReturnValue(localPath);
@@ -261,13 +273,13 @@ describe('getInstallationInfo', () => {
       (p) => p === path.join(projectRoot, 'pnpm-lock.yaml'),
     );
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.PNPM);
     expect(info.isGlobal).toBe(false);
   });
 
-  it('should detect local installation and identify bun from lockfile', () => {
+  it('should detect local installation and identify bun from lockfile', async () => {
     const localPath = `${projectRoot}/node_modules/.bin/gemini`;
     process.argv[1] = localPath;
     mockedRealPathSync.mockReturnValue(localPath);
@@ -278,13 +290,13 @@ describe('getInstallationInfo', () => {
       (p) => p === path.join(projectRoot, 'bun.lockb'),
     );
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.BUN);
     expect(info.isGlobal).toBe(false);
   });
 
-  it('should default to local npm installation if no lockfile is found', () => {
+  it('should default to local npm installation if no lockfile is found', async () => {
     const localPath = `${projectRoot}/node_modules/.bin/gemini`;
     process.argv[1] = localPath;
     mockedRealPathSync.mockReturnValue(localPath);
@@ -293,13 +305,13 @@ describe('getInstallationInfo', () => {
     });
     mockedExistsSync.mockReturnValue(false); // No lockfiles
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
 
     expect(info.packageManager).toBe(PackageManager.NPM);
     expect(info.isGlobal).toBe(false);
   });
 
-  it('should default to global npm installation for unrecognized paths', () => {
+  it('should default to global npm installation for unrecognized paths', async () => {
     const globalPath = `/usr/local/bin/gemini`;
     process.argv[1] = globalPath;
     mockedRealPathSync.mockReturnValue(globalPath);
@@ -307,13 +319,113 @@ describe('getInstallationInfo', () => {
       throw new Error('Command failed');
     });
 
-    const info = getInstallationInfo(projectRoot, false);
+    const info = await getInstallationInfo(projectRoot, false);
     expect(info.packageManager).toBe(PackageManager.NPM);
     expect(info.isGlobal).toBe(true);
-    expect(info.updateCommand).toBe('npm install -g @google/gemini-cli@latest');
+    expect(info.updateCommand).toBe(
+      `npm install -g ${defaultPackageName}@latest`,
+    );
     expect(info.updateMessage).toContain('Attempting to automatically update');
 
-    const infoDisabled = getInstallationInfo(projectRoot, true);
+    const infoDisabled = await getInstallationInfo(projectRoot, true);
     expect(infoDisabled.updateMessage).toContain('Please run npm install');
+  });
+
+  it('should use fork package name for update commands', async () => {
+    const forkPackageName = '@mmmbuto/gemini-cli-termux';
+    mockedGetPackageJson.mockResolvedValue({
+      name: forkPackageName,
+      version: '0.24.1-termux',
+    });
+
+    const globalPath = `/usr/local/bin/gemini`;
+    process.argv[1] = globalPath;
+    mockedRealPathSync.mockReturnValue(globalPath);
+    mockedExecSync.mockImplementation(() => {
+      throw new Error('Command failed');
+    });
+
+    const info = await getInstallationInfo(projectRoot, false);
+    expect(info.packageManager).toBe(PackageManager.NPM);
+    expect(info.isGlobal).toBe(true);
+    expect(info.updateCommand).toBe(`npm install -g ${forkPackageName}@latest`);
+  });
+
+  it('should use fork package name for pnpm update commands', async () => {
+    const forkPackageName = '@mmmbuto/gemini-cli-termux';
+    mockedGetPackageJson.mockResolvedValue({
+      name: forkPackageName,
+      version: '0.24.1-termux',
+    });
+
+    const pnpmPath = `/Users/test/.pnpm/global/5/node_modules/.pnpm/some-hash/node_modules/@mmmbuto/gemini-cli-termux/dist/index.js`;
+    process.argv[1] = pnpmPath;
+    mockedRealPathSync.mockReturnValue(pnpmPath);
+    mockedExecSync.mockImplementation(() => {
+      throw new Error('Command failed');
+    });
+
+    const info = await getInstallationInfo(projectRoot, false);
+    expect(info.packageManager).toBe(PackageManager.PNPM);
+    expect(info.updateCommand).toBe(`pnpm add -g ${forkPackageName}@latest`);
+  });
+
+  it('should use fork package name for yarn update commands', async () => {
+    const forkPackageName = '@mmmbuto/gemini-cli-termux';
+    mockedGetPackageJson.mockResolvedValue({
+      name: forkPackageName,
+      version: '0.24.1-termux',
+    });
+
+    const yarnPath = `/Users/test/.yarn/global/node_modules/@mmmbuto/gemini-cli-termux/dist/index.js`;
+    process.argv[1] = yarnPath;
+    mockedRealPathSync.mockReturnValue(yarnPath);
+    mockedExecSync.mockImplementation(() => {
+      throw new Error('Command failed');
+    });
+
+    const info = await getInstallationInfo(projectRoot, false);
+    expect(info.packageManager).toBe(PackageManager.YARN);
+    expect(info.updateCommand).toBe(
+      `yarn global add ${forkPackageName}@latest`,
+    );
+  });
+
+  it('should use fork package name for bun update commands', async () => {
+    const forkPackageName = '@mmmbuto/gemini-cli-termux';
+    mockedGetPackageJson.mockResolvedValue({
+      name: forkPackageName,
+      version: '0.24.1-termux',
+    });
+
+    const bunPath = `/Users/test/.bun/bin/gemini`;
+    process.argv[1] = bunPath;
+    mockedRealPathSync.mockReturnValue(bunPath);
+    mockedExecSync.mockImplementation(() => {
+      throw new Error('Command failed');
+    });
+
+    const info = await getInstallationInfo(projectRoot, false);
+    expect(info.packageManager).toBe(PackageManager.BUN);
+    expect(info.updateCommand).toBe(`bun add -g ${forkPackageName}@latest`);
+  });
+
+  it('should fallback to default package name when getPackageJson fails', async () => {
+    mockedGetPackageJson.mockRejectedValue(
+      new Error('Failed to read package.json'),
+    );
+
+    const globalPath = `/usr/local/bin/gemini`;
+    process.argv[1] = globalPath;
+    mockedRealPathSync.mockReturnValue(globalPath);
+    mockedExecSync.mockImplementation(() => {
+      throw new Error('Command failed');
+    });
+
+    const info = await getInstallationInfo(projectRoot, false);
+    expect(info.packageManager).toBe(PackageManager.NPM);
+    expect(info.updateCommand).toBe(
+      `npm install -g ${defaultPackageName}@latest`,
+    );
   });
 });
