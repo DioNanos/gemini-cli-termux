@@ -1,9 +1,9 @@
-# 🧪 Gemini CLI Termux Test Suite (v0.24.0-termux)
+# 🧪 Gemini CLI Termux Test Suite (v0.24.3-termux)
 
 **Goal**: Validate the Termux build without native deps
 (node-pty/keytar/tree-sitter). Run from a clean shell on Termux ARM64.
 
-**Version**: 0.24.0-termux **Last Updated**: 2025-12-28
+**Version**: 0.24.3-termux **Last Updated**: 2026-01-07
 
 ## 0. Prep
 
@@ -12,7 +12,7 @@
 
 ## 1. Version & Env
 
-1.1 `gemini --version` → shows `0.24.0-termux` 1.2 `node -v`, `uname -m`,
+1.1 `gemini --version` → shows `0.24.3-termux` 1.2 `node -v`, `uname -m`,
 `echo $PREFIX` (expect Termux paths / aarch64)
 
 ## 2. CLI Basics
@@ -55,7 +55,7 @@ errors in output
 ## 9. Package/binary
 
 9.1 `ls $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` exists 9.2
-`node bundle/gemini.js --version` (from repo) prints 0.24.0-termux 9.3
+`node bundle/gemini.js --version` (from repo) prints 0.24.3-termux 9.3
 `ls -lh $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` shows ~21MB
 bundle
 
@@ -80,7 +80,7 @@ JSON output or valid Termux-API response
 11.4 **Installation Helpers**: - `make termux-install` runs without error -
 `scripts/termux-setup.sh` completes successfully
 
-## 12. Context Memory & Memory Mode (v0.24.0+)
+## 12. Context Memory & Memory Mode (v0.24.3+)
 
 12.1 **Memory Mode UI** Open `/settings` → `Memory` and verify **Memory Mode**
 exists with options: `default`, `jit`, `jit+json`.
