@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.24.3-termux (npm latest)
+gemini --version  # expected: 0.24.4-termux (npm latest)
 ```
 
 Build from source:
@@ -65,8 +65,8 @@ node bundle/gemini.js --version
 ### 📚 Complete Documentation
 
 - **Test Results**
-  - [GEMINI_TEST_REPORT_v0.24.3.md](./GEMINI_TEST_REPORT_v0.24.3.md) — PASS
-    (partial execution; interactive steps pending)
+  - [GEMINI_TEST_REPORT_v0.24.4.md](./GEMINI_TEST_REPORT_v0.24.4.md) — PARTIAL
+    (interactive steps pending; build issues noted)
 - **[Test Suite](./GEMINI_TEST_SUITE.md)** - Test methodology and checklist
 - **[Context Memory](./docs/cli/context-memory.md)** - Memory modes, JIT + JSON,
   and setup guide
@@ -105,11 +105,11 @@ See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
 
-### Changelog (0.24.3-termux)
+### Changelog (0.24.4-termux)
 
-- **Upstream merge**: v0.25.0-nightly integrated with Termux patches preserved.
-- **Build fixes**: MessageBus import compatibility + `@types/js-yaml` added.
-- **Docs/tests**: new test report for v0.24.3-termux.
+- **Packaging fix**: Publish bundle root again (restores working npm installs).
+- **Auto-update**: Update command uses `@mmmbuto/gemini-cli-termux`.
+- **Docs/tests**: new test report for v0.24.4-termux.
 
 ## Tests
 
