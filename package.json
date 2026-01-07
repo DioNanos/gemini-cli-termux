@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.24.3-termux",
+  "version": "0.24.4-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -14,7 +14,7 @@
     "url": "https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.24.3-termux"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.24.4-termux"
   },
   "scripts": {
     "start": "crossenv NODE_ENV=development node scripts/start.js",
