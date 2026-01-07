@@ -1,6 +1,6 @@
 {
   "name": "@google/gemini-cli-core",
-  "version": "0.24.2-termux",
+  "version": "0.24.3-termux",
   "description": "Gemini CLI Core",
   "license": "Apache-2.0",
   "repository": {

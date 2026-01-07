@@ -18,6 +18,7 @@ import {
   type ContextMemoryScope,
 } from '../utils/contextMemory.js';
 import { ToolErrorType } from './tool-error.js';
+import type { MessageBus } from '../confirmation-bus/message-bus.js';
 
 interface McpImportParams {
   categories?: string[];
@@ -97,7 +98,7 @@ class McpImportInvocation extends BaseToolInvocation<
   constructor(
     private readonly config: Config,
     params: McpImportParams,
-    messageBus?: import('../confirmation-bus/message-bus.js').MessageBus,
+    messageBus: MessageBus,
     toolName?: string,
     displayName?: string,
   ) {
@@ -190,20 +191,23 @@ export class McpImportTool extends BaseDeclarativeTool<
 > {
   static readonly Name = 'mcp_import_memory';
 
-  constructor(private readonly config: Config) {
+  constructor(
+    private readonly config: Config,
+    messageBus: MessageBus,
+  ) {
     super(
       McpImportTool.Name,
       'ImportMemory',
       schema.description!,
       Kind.Other,
       schema.parametersJsonSchema as Record<string, unknown>,
-      true,
+      messageBus,
     );
   }
 
   protected createInvocation(
     params: McpImportParams,
-    messageBus?: import('../confirmation-bus/message-bus.js').MessageBus,
+    messageBus: MessageBus,
     toolName?: string,
     displayName?: string,
   ): ToolInvocation<McpImportParams, ToolResult> {
