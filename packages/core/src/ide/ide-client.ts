@@ -33,6 +33,12 @@ const logger = {
   error: (...args: any[]) => debugLogger.error('[ERROR] [IDEClient]', ...args),
 };
 
+type McpTextPart = { type: string; text?: string };
+type McpCallToolResult = { isError?: boolean; content: McpTextPart[] };
+type IdeContextParams = {
+  workspaceState?: { isTrusted?: boolean };
+} & Record<string, unknown>;
+
 export type DiffUpdateResult =
   | {
       status: 'accepted';
@@ -256,10 +262,10 @@ export class IdeClient {
           CallToolResultSchema,
           { timeout: IDE_REQUEST_TIMEOUT_MS },
         )
-        .then((parsedResultData) => {
+        .then((parsedResultData: McpCallToolResult) => {
           if (parsedResultData.isError) {
             const textPart = parsedResultData.content.find(
-              (part) => part.type === 'text',
+              (part: McpTextPart) => part.type === 'text',
             );
             const errorMessage =
               textPart?.text ?? `Tool 'openDiff' reported an error.`;
@@ -271,7 +277,7 @@ export class IdeClient {
             reject(new Error(errorMessage));
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           logger.debug(`Request for openDiff ${filePath} failed:`, err);
           this.diffResponses.delete(filePath);
           reject(err);
@@ -341,7 +347,7 @@ export class IdeClient {
 
       if (resultData.isError) {
         const textPart = resultData.content.find(
-          (part) => part.type === 'text',
+          (part: McpTextPart) => part.type === 'text',
         );
         const errorMessage =
           textPart?.text ?? `Tool 'closeDiff' reported an error.`;
@@ -352,7 +358,9 @@ export class IdeClient {
         return undefined;
       }
 
-      const textPart = resultData.content.find((part) => part.type === 'text');
+      const textPart = resultData.content.find(
+        (part: McpTextPart) => part.type === 'text',
+      );
 
       if (textPart?.text) {
         try {
@@ -439,10 +447,10 @@ export class IdeClient {
     }
     try {
       logger.debug('Discovering tools from IDE...');
-      const response = await this.client.request(
+      const response = (await this.client.request(
         { method: 'tools/list', params: {} },
         ListToolsResultSchema,
-      );
+      )) as McpToolsListResponse;
 
       // Map the array of tool objects to an array of tool names (strings)
       this.availableTools = response.tools.map((tool) => tool.name);
@@ -704,7 +712,7 @@ export class IdeClient {
 
     this.client.setNotificationHandler(
       IdeContextNotificationSchema,
-      (notification) => {
+      (notification: { params: IdeContextParams }) => {
         ideContextStore.set(notification.params);
         const isTrusted = notification.params.workspaceState?.isTrusted;
         if (isTrusted !== undefined) {
@@ -714,7 +722,7 @@ export class IdeClient {
         }
       },
     );
-    this.client.onerror = (_error) => {
+    this.client.onerror = (_error: unknown) => {
       const errorMessage = _error instanceof Error ? _error.message : `_error`;
       this.setState(
         IDEConnectionStatus.Disconnected,
@@ -731,7 +739,7 @@ export class IdeClient {
     };
     this.client.setNotificationHandler(
       IdeDiffAcceptedNotificationSchema,
-      (notification) => {
+      (notification: { params: { filePath: string; content?: string } }) => {
         const { filePath, content } = notification.params;
         const resolver = this.diffResponses.get(filePath);
         if (resolver) {
@@ -745,7 +753,7 @@ export class IdeClient {
 
     this.client.setNotificationHandler(
       IdeDiffRejectedNotificationSchema,
-      (notification) => {
+      (notification: { params: { filePath: string } }) => {
         const { filePath } = notification.params;
         const resolver = this.diffResponses.get(filePath);
         if (resolver) {
@@ -761,7 +769,7 @@ export class IdeClient {
     // IdeDiffRejectedNotificationSchema.
     this.client.setNotificationHandler(
       IdeDiffClosedNotificationSchema,
-      (notification) => {
+      (notification: { params: { filePath: string } }) => {
         const { filePath } = notification.params;
         const resolver = this.diffResponses.get(filePath);
         if (resolver) {

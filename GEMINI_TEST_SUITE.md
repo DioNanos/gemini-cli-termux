@@ -1,9 +1,9 @@
-# 🧪 Gemini CLI Termux Test Suite (v0.24.4-termux)
+# 🧪 Gemini CLI Termux Test Suite (v0.24.5-termux)
 
 **Goal**: Validate the Termux build without native deps
 (node-pty/keytar/tree-sitter). Run from a clean shell on Termux ARM64.
 
-**Version**: 0.24.4-termux **Last Updated**: 2026-01-07
+**Version**: 0.24.5-termux **Last Updated**: 2026-01-07
 
 ## 0. Prep
 
@@ -12,7 +12,7 @@
 
 ## 1. Version & Env
 
-1.1 `gemini --version` → shows `0.24.4-termux` 1.2 `node -v`, `uname -m`,
+1.1 `gemini --version` → shows `0.24.5-termux` 1.2 `node -v`, `uname -m`,
 `echo $PREFIX` (expect Termux paths / aarch64)
 
 ## 2. CLI Basics
@@ -55,7 +55,7 @@ errors in output
 ## 9. Package/binary
 
 9.1 `ls $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` exists 9.2
-`node bundle/gemini.js --version` (from repo) prints 0.24.4-termux 9.3
+`node bundle/gemini.js --version` (from repo) prints 0.24.5-termux 9.3
 `ls -lh $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` shows ~21MB
 bundle
 

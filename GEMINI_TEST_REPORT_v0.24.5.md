@@ -1,17 +1,17 @@
-# Test Report v0.24.4-termux
+# Test Report v0.24.5-termux
 
 **Date**: 2026-01-07 **Node**: v25.2.1 **Termux**: latest **Arch**: aarch64
 
 ## Release Summary
 
-- **Packaging fix**: published bundle root again (restores working npm installs)
-- **Auto-update**: update command resolved via package name
+- **Build fix**: MCP SDK typings shim for strict TypeScript builds on Termux
+- **Auto-update**: update command uses `@mmmbuto/gemini-cli-termux`
 
 ## Test Results
 
 | Section                  | Status | Notes                                                           |
 | ------------------------ | ------ | --------------------------------------------------------------- |
-| 1. Version & Env         | ✅     | 0.24.4-termux, aarch64, Termux paths                            |
+| 1. Version & Env         | ✅     | 0.24.5-termux, aarch64, Termux paths                            |
 | 2. CLI Basics            | ⚠️     | `--model` present; `auth/logout` not listed in `--help`         |
 | 4. Extensions            | ✅     | Extensions list/settings help OK                                |
 | 5. MCP                   | ✅     | MCP list works (memory server connected)                        |
@@ -49,9 +49,9 @@
 
 ## Conclusion
 
-**v0.24.4-termux** fixes npm packaging and restores working installs. Runtime
-CLI checks pass and workspace build succeeds; remaining warnings are limited to
-non-critical CLI/help and optional interactive checks.
+**v0.24.5-termux** hardens the Termux build by shimming missing MCP SDK typings.
+Runtime CLI checks pass and workspace build succeeds; remaining warnings are
+limited to non-critical CLI/help and optional interactive checks.
 
 ---
 

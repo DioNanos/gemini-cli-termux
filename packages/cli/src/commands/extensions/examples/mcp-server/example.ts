@@ -43,7 +43,7 @@ server.registerPrompt(
     description: 'Write a nice haiku',
     argsSchema: { title: z.string(), mood: z.string().optional() },
   },
-  ({ title, mood }) => ({
+  ({ title, mood }: { title: string; mood?: string }) => ({
     messages: [
       {
         role: 'user',

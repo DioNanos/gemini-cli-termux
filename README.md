@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.24.4-termux (npm latest)
+gemini --version  # expected: 0.24.5-termux (npm latest)
 ```
 
 Build from source:
@@ -65,8 +65,8 @@ node bundle/gemini.js --version
 ### 📚 Complete Documentation
 
 - **Test Results**
-  - [GEMINI_TEST_REPORT_v0.24.4.md](./GEMINI_TEST_REPORT_v0.24.4.md) — PARTIAL
-    (interactive steps pending; build issues noted)
+  - [GEMINI_TEST_REPORT_v0.24.5.md](./GEMINI_TEST_REPORT_v0.24.5.md) — PARTIAL
+    (interactive steps pending; build OK)
 - **[Test Suite](./GEMINI_TEST_SUITE.md)** - Test methodology and checklist
 - **[Context Memory](./docs/cli/context-memory.md)** - Memory modes, JIT + JSON,
   and setup guide
@@ -105,19 +105,19 @@ See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
 
-### Changelog (0.24.4-termux)
+### Changelog (0.24.5-termux)
 
-- **Packaging fix**: Publish bundle root again (restores working npm installs).
+- **Build fix**: MCP SDK typings shim for strict TypeScript builds on Termux.
 - **Auto-update**: Update command uses `@mmmbuto/gemini-cli-termux`.
-- **Docs/tests**: new test report for v0.24.4-termux.
+- **Docs/tests**: new test report for v0.24.5-termux.
 
 ## Tests
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
 - Latest report:
-  - [`GEMINI_TEST_REPORT_v0.24.3.md`](./GEMINI_TEST_REPORT_v0.24.3.md) — PASS
-    (partial execution; interactive steps pending). Notes include
-    non‑interactive tool confirmation limits.
+  - [`GEMINI_TEST_REPORT_v0.24.5.md`](./GEMINI_TEST_REPORT_v0.24.5.md) — PARTIAL
+    (interactive steps pending). Notes include non‑interactive tool confirmation
+    limits.
 
 ## Termux-API Integration
 

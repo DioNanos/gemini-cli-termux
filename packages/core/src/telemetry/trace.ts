@@ -8,6 +8,7 @@ import {
   diag,
   SpanStatusCode,
   trace,
+  type Span,
   type AttributeValue,
   type SpanOptions,
 } from '@opentelemetry/api';
@@ -74,62 +75,66 @@ export async function runInDevTraceSpan<R>(
   }
 
   const tracer = trace.getTracer(TRACER_NAME, TRACER_VERSION);
-  return tracer.startActiveSpan(opts.name, restOfSpanOpts, async (span) => {
-    const meta: SpanMetadata = {
-      name: spanName,
-      attributes: {},
-    };
-    const endSpan = () => {
-      try {
-        if (meta.input !== undefined) {
-          span.setAttribute('input-json', safeJsonStringify(meta.input));
-        }
-        if (meta.output !== undefined) {
-          span.setAttribute('output-json', safeJsonStringify(meta.output));
-        }
-        for (const [key, value] of Object.entries(meta.attributes)) {
-          span.setAttribute(key, value);
-        }
-        if (meta.error) {
+  return tracer.startActiveSpan(
+    opts.name,
+    restOfSpanOpts,
+    async (span: Span) => {
+      const meta: SpanMetadata = {
+        name: spanName,
+        attributes: {},
+      };
+      const endSpan = () => {
+        try {
+          if (meta.input !== undefined) {
+            span.setAttribute('input-json', safeJsonStringify(meta.input));
+          }
+          if (meta.output !== undefined) {
+            span.setAttribute('output-json', safeJsonStringify(meta.output));
+          }
+          for (const [key, value] of Object.entries(meta.attributes)) {
+            span.setAttribute(key, value);
+          }
+          if (meta.error) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: getErrorMessage(meta.error),
+            });
+            if (meta.error instanceof Error) {
+              span.recordException(meta.error);
+            }
+          } else {
+            span.setStatus({ code: SpanStatusCode.OK });
+          }
+        } catch (e) {
+          // Log the error but don't rethrow, to ensure span.end() is called.
+          diag.error('Error setting span attributes in endSpan', e);
           span.setStatus({
             code: SpanStatusCode.ERROR,
-            message: getErrorMessage(meta.error),
+            message: `Error in endSpan: ${getErrorMessage(e)}`,
           });
-          if (meta.error instanceof Error) {
-            span.recordException(meta.error);
-          }
-        } else {
-          span.setStatus({ code: SpanStatusCode.OK });
+        } finally {
+          span.end();
         }
+      };
+      try {
+        return await fn({ metadata: meta, endSpan });
       } catch (e) {
-        // Log the error but don't rethrow, to ensure span.end() is called.
-        diag.error('Error setting span attributes in endSpan', e);
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: `Error in endSpan: ${getErrorMessage(e)}`,
-        });
+        meta.error = e;
+        if (noAutoEnd) {
+          // For streaming operations, the delegated endSpan call will not be reached
+          // on an exception, so we must end the span here to prevent a leak.
+          endSpan();
+        }
+        throw e;
       } finally {
-        span.end();
+        if (!noAutoEnd) {
+          // For non-streaming operations, this ensures the span is always closed,
+          // and if an error occurred, it will be recorded correctly by endSpan.
+          endSpan();
+        }
       }
-    };
-    try {
-      return await fn({ metadata: meta, endSpan });
-    } catch (e) {
-      meta.error = e;
-      if (noAutoEnd) {
-        // For streaming operations, the delegated endSpan call will not be reached
-        // on an exception, so we must end the span here to prevent a leak.
-        endSpan();
-      }
-      throw e;
-    } finally {
-      if (!noAutoEnd) {
-        // For non-streaming operations, this ensures the span is always closed,
-        // and if an error occurred, it will be recorded correctly by endSpan.
-        endSpan();
-      }
-    }
-  });
+    },
+  );
 }
 
 /**

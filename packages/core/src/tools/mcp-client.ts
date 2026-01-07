@@ -147,7 +147,7 @@ export class McpClient {
       this.registerNotificationHandlers();
 
       const originalOnError = this.client.onerror;
-      this.client.onerror = (error) => {
+      this.client.onerror = (error: unknown) => {
         if (this.status !== MCPServerStatus.CONNECTED) {
           return;
         }
@@ -828,7 +828,7 @@ export async function connectAndDiscover(
       cliConfig.sanitizationConfig,
     );
 
-    mcpClient.onerror = (error) => {
+    mcpClient.onerror = (error: unknown) => {
       coreEvents.emitFeedback('error', `MCP ERROR (${mcpServerName}):`, error);
       updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
     };
@@ -1798,7 +1798,7 @@ export async function createTransport(
       stderr: 'pipe',
     });
     if (debugMode) {
-      transport.stderr!.on('data', (data) => {
+      transport.stderr!.on('data', (data: Buffer) => {
         const stderrStr = data.toString().trim();
         debugLogger.debug(
           `[DEBUG] [MCP STDERR (${mcpServerName})]: `,

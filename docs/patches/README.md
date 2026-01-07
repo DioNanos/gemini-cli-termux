@@ -26,6 +26,9 @@ it updated whenever a new patch is added or removed.
     Termux; TTS toggle exposed (opt-in).
 11. **Shell parser fix** – Base64 polyfill in bundle banner to support
     web-tree-sitter on Node 22/24 (fixes `run_shell_command`).
+12. **MCP SDK typings shim** – Local `.d.ts` shims for
+    `@modelcontextprotocol/sdk` to satisfy strict builds.
+    [Details](./mcp-sdk-typings-shim.md)
 
 ## Expected Warnings
 

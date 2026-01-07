@@ -1668,7 +1668,7 @@ describe('connectToMcpServer with OAuth', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let capturedTransport: any;
     vi.mocked(mockedClient.connect).mockImplementationOnce(
-      async (transport) => {
+      async (transport: unknown) => {
         capturedTransport = transport;
         return Promise.resolve();
       },
@@ -1713,7 +1713,7 @@ describe('connectToMcpServer with OAuth', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let capturedTransport: any;
     vi.mocked(mockedClient.connect).mockImplementationOnce(
-      async (transport) => {
+      async (transport: unknown) => {
         capturedTransport = transport;
         return Promise.resolve();
       },
