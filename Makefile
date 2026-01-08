@@ -61,7 +61,7 @@ create-alias:
 # TERMUX PATCH: Termux-specific targets
 termux-install:
 	@echo "=== Installing for Termux ==="
-	npm install --ignore-optional --ignore-scripts
+	npm install
 	npm run build
 	npm run bundle
 	@echo ""

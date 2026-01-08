@@ -1,7 +1,7 @@
 # Patch Analysis & Improvement Proposals
 
-**Project**: gemini-cli-termux **Version**: 0.22.0-termux **Author**: DioNanos
-**Date**: 2025-12-17
+**Project**: gemini-cli-termux **Version**: 0.24.6-termux **Author**: DioNanos
+**Date**: 2026-01-08
 
 ---
 
@@ -72,40 +72,36 @@ export default isInCi;
 ```json
 {
   "optionalDependencies": {
-    "@lydell/node-pty": "1.1.0",
-    "@lydell/node-pty-darwin-arm64": "1.1.0",
-    "@lydell/node-pty-darwin-x64": "1.1.0",
-    "@lydell/node-pty-linux-x64": "1.1.0",
-    "@lydell/node-pty-win32-arm64": "1.1.0",
-    "@lydell/node-pty-win32-x64": "1.1.0",
-    "node-pty": "^1.0.0"
+    "@mmmbuto/node-pty-android-arm64": "1.1.0"
   }
 }
 ```
 
 **Purpose**: Allows installation without compiling native modules.
 
-**Status**: ✅ Functional, but with warnings
+**Status**: ✅ Functional, clean install on Termux
 
 **Proposed Improvements**: See
 [Installation Improvements](#installation-improvements)
 
 ---
 
-### 4. esbuild External Modules
+### 4. Prepare Script (Termux)
+
+**File**: `scripts/prepare-termux.cjs`
+
+**Purpose**: Skips `husky` + `bundle` work on Termux installs.
+
+**Status**: ✅ Functional
+
+---
+
+### 5. esbuild External Modules
 
 **File**: `esbuild.config.js`
 
 ```javascript
-const external = [
-  '@lydell/node-pty',
-  'node-pty',
-  '@lydell/node-pty-darwin-arm64',
-  '@lydell/node-pty-darwin-x64',
-  '@lydell/node-pty-linux-x64',
-  '@lydell/node-pty-win32-arm64',
-  '@lydell/node-pty-win32-x64',
-];
+const external = ['@mmmbuto/node-pty-android-arm64'];
 ```
 
 **Purpose**: Excludes native modules from the bundle.
@@ -118,14 +114,19 @@ const external = [
 
 ### Issue 1: Warning during npm install
 
-**Symptom**:
+**Symptom (before Termux-only fork)**:
 
 ```
 npm warn optional SKIPPING OPTIONAL DEPENDENCY: @lydell/node-pty@1.1.0
 npm warn notsup SKIPPING OPTIONAL DEPENDENCY: Unsupported platform for @lydell/node-pty-linux-x64
 ```
 
-**Proposed Solution**:
+**Current Status**:
+
+With `@mmmbuto/node-pty-android-arm64`, installs on Termux should be clean and
+avoid node-gyp.
+
+**Legacy Proposed Solution**:
 
 #### A. Custom postinstall script
 
@@ -173,23 +174,19 @@ if (os.platform() === 'android' || process.env.TERMUX_VERSION) {
 }
 ```
 
-#### B. Documentation .npmrc
+#### B. Documentation .npmrc (legacy)
 
-Create `.npmrc` with:
-
-```ini
-# Suppress optional dependency warnings
-loglevel=error
-optional=false
-```
-
-**Note**: Not recommended globally, but useful for advanced users.
+Previously used to suppress optional dependency warnings. **Do not use
+`optional=false` now**, because it disables the Termux PTY prebuild.
 
 ---
 
-### Issue 2: Build from source requires manual flags
+### Issue 2: Build from source should not require manual flags
 
-**Symptom**: Users must remember `--ignore-optional --ignore-scripts`.
+**Symptom (before `prepare-termux`)**: `npm install` ran desktop-only prepare
+steps, so users relied on `--ignore-scripts`.
+
+**Current Status**: `prepare` is now Termux-aware, so plain `npm install` works.
 
 **Proposed Solution**:
 
@@ -202,12 +199,12 @@ optional=false
 
 # Standard install (desktop)
 install:
-	nnpm install
+	npm install
 
 # Termux-specific install
 termux-install:
 	@echo "Installing for Termux..."
-	npm install --ignore-optional --ignore-scripts
+	npm install
 	npm run build
 	npm run bundle
 	@echo ""
@@ -241,7 +238,7 @@ fi
 
 # Install dependencies
 echo "Installing dependencies..."
-npm install --ignore-optional --ignore-scripts 2>&1 | grep -v "npm warn"
+npm install
 
 # Build
 echo "Building..."

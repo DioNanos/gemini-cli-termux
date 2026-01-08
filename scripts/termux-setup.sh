@@ -23,10 +23,10 @@ if [ ! -f "package.json" ]; then
 fi
 echo "✓ In project directory"
 
-# Install dependencies (suppress optional warnings)
+# Install dependencies
 echo ""
 echo "Installing dependencies..."
-npm install --ignore-optional --ignore-scripts 2>&1 | grep -v "npm warn" || true
+npm install
 echo "✓ Dependencies installed"
 
 # Build

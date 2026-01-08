@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from 'node:process';
 import { DEFAULT_GEMINI_MODEL } from '../packages/core/src/config/models.js';
 import fs from 'node:fs';
-import * as pty from '@lydell/node-pty';
+import * as pty from '@mmmbuto/node-pty-android-arm64';
 import stripAnsi from 'strip-ansi';
 import * as os from 'node:os';
 import { GEMINI_DIR } from '../packages/core/src/utils/paths.js';

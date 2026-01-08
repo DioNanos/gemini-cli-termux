@@ -7,7 +7,7 @@
 export type PtyImplementation = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   module: any;
-  name: 'lydell-node-pty' | 'node-pty';
+  name: 'mmmbuto-node-pty';
 } | null;
 
 export interface PtyProcess {
@@ -18,22 +18,19 @@ export interface PtyProcess {
 }
 
 export const getPty = async (): Promise<PtyImplementation> => {
-  // Termux/Android: native node-pty bindings are unavailable; force child_process fallback.
-  if (process.env['PREFIX']?.includes('com.termux')) {
+  const isAndroid =
+    process.platform === 'android' ||
+    process.env['PREFIX']?.includes('com.termux');
+
+  if (!isAndroid) {
     return null;
   }
 
   try {
-    const lydell = '@lydell/node-pty';
-    const module = await import(lydell);
-    return { module, name: 'lydell-node-pty' };
+    const mmmbuto = '@mmmbuto/node-pty-android-arm64';
+    const module = await import(mmmbuto);
+    return { module, name: 'mmmbuto-node-pty' };
   } catch (_e) {
-    try {
-      const nodePty = 'node-pty';
-      const module = await import(nodePty);
-      return { module, name: 'node-pty' };
-    } catch (_e2) {
-      return null;
-    }
+    return null;
   }
 };

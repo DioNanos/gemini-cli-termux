@@ -2,7 +2,7 @@
 
 **Project**: gemini-cli-termux  
 **Author**: DioNanos  
-**Last updated**: 2025-12-28  
+**Last updated**: 2026-01-08  
 **Scope**: Version-agnostic strategy for maintaining all Termux patches
 
 ---
@@ -86,6 +86,11 @@ Likely conflict files:
 - `packages/core/src/services/contextManager.ts` - Keep JIT + JSON wiring
 - `packages/core/src/utils/contextMemory.ts` - Keep JSON memory logic
 - `packages/core/src/tools/shell.ts` - Keep TTS guard
+- `packages/core/package.json` - Keep `@mmmbuto/node-pty-android-arm64` and
+  remove `@lydell/node-pty-*`/`node-pty`
+- `packages/core/src/types/pty-shim.d.ts` - Keep Termux PTY typings shim
+- `packages/core/src/types/mcp-sdk-shims.d.ts` - Keep MCP SDK typings shim
+- `scripts/prepare-termux.cjs` - Keep Termux prepare no-op
 
 ### Step 4: Verify patches intact
 
@@ -96,10 +101,14 @@ ls -la packages/core/src/utils/contextMemory.ts
 ls -la scripts/postinstall.cjs
 ls -la scripts/termux-setup.sh
 ls -la scripts/termux-tools/
+ls -la packages/core/src/types/pty-shim.d.ts
+ls -la packages/core/src/types/mcp-sdk-shims.d.ts
 
 # Check that modifications are present
 grep "TERMUX PATCH" esbuild.config.js
 grep "postinstall" package.json
+grep "@mmmbuto/node-pty-android-arm64" packages/core/package.json
+ls -la scripts/prepare-termux.cjs
 grep "termux-detect" packages/core/src/index.ts
 grep "memory.mode" packages/cli/src/config/settingsSchema.ts
 ```
@@ -107,7 +116,7 @@ grep "memory.mode" packages/cli/src/config/settingsSchema.ts
 ### Step 5: Build test
 
 ```bash
-npm install --ignore-optional --ignore-scripts
+npm install
 npm run build
 npm run bundle
 node bundle/gemini.js --version

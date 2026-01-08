@@ -8,32 +8,34 @@ it updated whenever a new patch is added or removed.
 
 1. **Clipboard (TERMUX\_\_PREFIX)** – On Termux set `TERMUX__PREFIX` from
    `$PREFIX` so clipboardy detects Termux correctly.
-2. **Optional native modules** – Leave `node-pty`, `keytar`, `tree-sitter-bash`
-   in `optionalDependencies`; build failures are tolerated.
-3. **Core exports** – `packages/core/src/index.ts` re-exports stdio utilities,
+2. **Android PTY prebuild** – Use `@mmmbuto/node-pty-android-arm64` for Termux;
+   remove `@lydell/node-pty-*` and generic `node-pty`.
+3. **Prepare script** – `prepare` is a no-op on Termux to avoid unnecessary
+   bundle/husky work during installs.
+4. **Core exports** – `packages/core/src/index.ts` re-exports stdio utilities,
    hook/telemetry APIs, Termux detectors, and context-memory helpers so CLI
    bundling succeeds on Termux.
-4. **Bundle** – Prebuilt `bundle/gemini.js` shipped in npm package
+5. **Bundle** – Prebuilt `bundle/gemini.js` shipped in npm package
    (ARM64/Android) with policy files under `bundle/policies/`.
-5. **is-in-ci override** – Prevents ink from detecting Termux as CI.
-6. **Punycode warning** – Suppresses deprecation warning on Android.
-7. **Termux detection** – `packages/core/src/utils/termux-detect.ts` utility.
-8. **Postinstall message** – Clear success message on Termux install.
-9. **Context memory + Memory Mode** – JSON memories (base/user/journal) plus
-   presets: `default`, `jit`, `jit+json`. Auto-load toggles, primary selector,
-   and MCP import tool (disabled by default; base writes still gated).
-10. **Mobile-first settings** – Compact `/settings` rendering by default on
+6. **is-in-ci override** – Prevents ink from detecting Termux as CI.
+7. **Punycode warning** – Suppresses deprecation warning on Android.
+8. **Termux detection** – `packages/core/src/utils/termux-detect.ts` utility.
+9. **Postinstall message** – Clear success message on Termux install.
+10. **Context memory + Memory Mode** – JSON memories (base/user/journal) plus
+    presets: `default`, `jit`, `jit+json`. Auto-load toggles, primary selector,
+    and MCP import tool (disabled by default; base writes still gated).
+11. **Mobile-first settings** – Compact `/settings` rendering by default on
     Termux; TTS toggle exposed (opt-in).
-11. **Shell parser fix** – Base64 polyfill in bundle banner to support
+12. **Shell parser fix** – Base64 polyfill in bundle banner to support
     web-tree-sitter on Node 22/24 (fixes `run_shell_command`).
-12. **MCP SDK typings shim** – Local `.d.ts` shims for
+13. **MCP SDK typings shim** – Local `.d.ts` shims for
     `@modelcontextprotocol/sdk` to satisfy strict builds.
     [Details](./mcp-sdk-typings-shim.md)
 
 ## Expected Warnings
 
-- Missing native modules may log warnings on Termux; functionality remains
-  (non-PTY shell, plain token storage).
+- No node-pty warnings expected on Termux. If PTY fails to load, the CLI falls
+  back to `child_process`.
 
 ## Scope
 

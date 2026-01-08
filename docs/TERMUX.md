@@ -15,44 +15,42 @@ Android.
 npm install -g @mmmbuto/gemini-cli-termux
 
 gemini --version
-# expected: 0.22.0-termux (latest)
+# expected: 0.24.6-termux (latest)
 ```
 
 Features of the npm build
 
 - ARM64/Android bundle included
 - Termux clipboard patch (`PREFIX` -> `TERMUX__PREFIX`)
-- Native modules left optional; no NDK required
+- PTY prebuild via `@mmmbuto/node-pty-android-arm64` (no NDK required)
 
 ## Build from source (Termux fork)
 
 ```bash
 git clone https://github.com/DioNanos/gemini-cli-termux.git
 cd gemini-cli-termux
-npm install --ignore-optional --ignore-scripts
+npm install
 npm run build && npm run bundle
 node bundle/gemini.js --version
 ```
 
 ## Known issues
 
-1. Native modules (keytar, node-pty, tree-sitter-bash) fail on Termux → ignored
-   with the install flags above.
-2. Clipboardy TERMUX\_\_PREFIX is patched in the bundle.
-3. Node punycode warning is harmless; optional:
+1. If the PTY prebuild fails to load, the CLI falls back to `child_process`
+   (non-interactive).
+2. Node punycode warning is harmless; optional:
    `node --no-deprecation bundle/gemini.js`.
 
 ## Limitations
 
-- No full PTY support → some interactive shell features limited
+- PTY support depends on the `@mmmbuto/node-pty-android-arm64` prebuild
 - No secure keychain → credentials stored in plain config files
 - Bash parsing simplified (no tree-sitter)
 
 ## Update
 
 - npm: `npm install -g @mmmbuto/gemini-cli-termux@latest`
-- source:
-  `git pull && npm install --ignore-optional --ignore-scripts && npm run build && npm run bundle`
+- source: `git pull && npm install && npm run build && npm run bundle`
 
 ## Termux-API Support (Optional)
 

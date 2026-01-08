@@ -26,10 +26,10 @@ if (isTermux) {
     '║                                                              ║',
   );
   console.log(
-    '║  Note: Native module warnings above are EXPECTED.            ║',
+    '║  PTY: @mmmbuto/node-pty-android-arm64 (no node-gyp).          ║',
   );
   console.log(
-    '║  The CLI works with reduced PTY functionality.               ║',
+    '║  The CLI supports interactive PTY on Termux.                 ║',
   );
   console.log(
     '║                                                              ║',

@@ -222,7 +222,7 @@ grep -r "isTermux" packages/cli/src/config/config.ts
 grep "termux-detect" packages/core/src/index.ts
 
 # Build test
-npm install --ignore-optional --ignore-scripts
+npm install
 npm run build
 npm run bundle
 node bundle/gemini.js --version  # deve essere 0.24.0-termux
@@ -289,7 +289,7 @@ Aggiornare versione e sandboxImageUri.
 | ------------------------- | ----------- | -------------------------------------- |
 | Context memory regression | Bassa       | Test completo memory system            |
 | Shell tool breakage       | Bassa       | Verificare isTermux() logic            |
-| Build failure             | Molto bassa | --ignore-optional --ignore-scripts     |
+| Build failure             | Molto bassa | prepare-termux: npm install (no flags) |
 | npm publish issues        | Bassa       | Verificare files array in package.json |
 
 ---

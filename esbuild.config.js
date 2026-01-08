@@ -54,15 +54,7 @@ function createWasmPlugins() {
   return [wasmBinaryPlugin, wasmLoader({ mode: 'embedded' })];
 }
 
-const external = [
-  '@lydell/node-pty',
-  'node-pty',
-  '@lydell/node-pty-darwin-arm64',
-  '@lydell/node-pty-darwin-x64',
-  '@lydell/node-pty-linux-x64',
-  '@lydell/node-pty-win32-arm64',
-  '@lydell/node-pty-win32-x64',
-];
+const external = ['@mmmbuto/node-pty-android-arm64'];
 
 const baseConfig = {
   bundle: true,

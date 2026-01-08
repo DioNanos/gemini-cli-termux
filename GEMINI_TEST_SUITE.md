@@ -1,9 +1,9 @@
-# 🧪 Gemini CLI Termux Test Suite (v0.24.5-termux)
+# 🧪 Gemini CLI Termux Test Suite (v0.24.6-termux)
 
-**Goal**: Validate the Termux build without native deps
-(node-pty/keytar/tree-sitter). Run from a clean shell on Termux ARM64.
+**Goal**: Validate the Termux build with ARM64 PTY prebuild (no node-gyp). Run
+from a clean shell on Termux ARM64.
 
-**Version**: 0.24.5-termux **Last Updated**: 2026-01-07
+**Version**: 0.24.6-termux **Last Updated**: 2026-01-08
 
 ## 0. Prep
 
@@ -12,7 +12,7 @@
 
 ## 1. Version & Env
 
-1.1 `gemini --version` → shows `0.24.5-termux` 1.2 `node -v`, `uname -m`,
+1.1 `gemini --version` → shows `0.24.6-termux` 1.2 `node -v`, `uname -m`,
 `echo $PREFIX` (expect Termux paths / aarch64)
 
 ## 2. CLI Basics
@@ -55,14 +55,14 @@ errors in output
 ## 9. Package/binary
 
 9.1 `ls $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` exists 9.2
-`node bundle/gemini.js --version` (from repo) prints 0.24.5-termux 9.3
+`node bundle/gemini.js --version` (from repo) prints 0.24.6-termux 9.3
 `ls -lh $(npm root -g)/@mmmbuto/gemini-cli-termux/bundle/gemini.js` shows ~21MB
 bundle
 
-## 10. Known limits (assert graceful handling)
+## 10. PTY checks
 
-10.1 `node-pty` optional: running `require('node-pty')` should fail gracefully
-(not crash CLI)
+10.1 `node -e "require('@mmmbuto/node-pty-android-arm64')"` should succeed 10.2
+`node -e "require('node-pty')"` should fail gracefully (not installed)
 
 ## 11. Termux-API Integration (v0.22.1+)
 

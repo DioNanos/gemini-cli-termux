@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 declare module '@modelcontextprotocol/sdk/client/index.js' {
   interface ClientOptions {
     name: string;
@@ -23,12 +25,9 @@ declare module '@modelcontextprotocol/sdk/client/index.js' {
     onclose?: () => void;
     setNotificationHandler(
       schema: unknown,
-      handler: (notification: { params: unknown }) => void,
+      handler: (notification: { params: any }) => void,
     ): void;
-    setRequestHandler(
-      schema: unknown,
-      handler: (...args: unknown[]) => unknown,
-    ): void;
+    setRequestHandler(schema: unknown, handler: (...args: any[]) => any): void;
     registerCapabilities(capabilities: Record<string, unknown>): void;
     notification(request: { method: string; params?: unknown }): Promise<void>;
     getServerCapabilities(): ServerCapabilities | undefined;
@@ -36,7 +35,9 @@ declare module '@modelcontextprotocol/sdk/client/index.js' {
     listTools(
       params?: Record<string, unknown>,
       options?: { timeout?: number; signal?: AbortSignal },
-    ): Promise<{ tools: Array<import('@modelcontextprotocol/sdk/types.js').Tool> }>;
+    ): Promise<{
+      tools: Array<import('@modelcontextprotocol/sdk/types.js').Tool>;
+    }>;
     listPrompts(
       params?: Record<string, unknown>,
       options?: { timeout?: number; signal?: AbortSignal },
@@ -47,7 +48,7 @@ declare module '@modelcontextprotocol/sdk/client/index.js' {
       request: { name: string; arguments?: Record<string, unknown> },
       options?: { timeout?: number; signal?: AbortSignal },
     ): Promise<import('@modelcontextprotocol/sdk/types.js').GetPromptResult>;
-    request<T = unknown>(
+    request<T = any>(
       request: unknown,
       schema?: unknown,
       options?: { timeout?: number },
@@ -56,7 +57,7 @@ declare module '@modelcontextprotocol/sdk/client/index.js' {
       request: unknown,
       schema?: unknown,
       options?: { timeout?: number },
-    ): Promise<Record<string, unknown>>;
+    ): Promise<any>;
     connect(transport: unknown, options?: { timeout?: number }): Promise<void>;
     close(): Promise<void>;
     ping(): Promise<void>;
@@ -234,3 +235,8 @@ declare module '@modelcontextprotocol/sdk/types.js' {
   export const ResourceListChangedNotificationSchema: unknown;
   export const ToolListChangedNotificationSchema: unknown;
 }
+
+// Minimal global type for IDE tool discovery responses.
+type McpToolsListResponse = {
+  tools: Array<import('@modelcontextprotocol/sdk/types.js').Tool>;
+};

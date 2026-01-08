@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-declare module '@lydell/node-pty' {
+declare module '@mmmbuto/node-pty-android-arm64' {
   export interface IPty {
     pid: number;
     write(data: string): void;

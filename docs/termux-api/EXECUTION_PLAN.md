@@ -117,10 +117,10 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
-# Install dependencies (suppress optional warnings)
+# Install dependencies
 echo ""
 echo "Installing dependencies..."
-npm install --ignore-optional --ignore-scripts 2>&1 | grep -v "npm warn" || true
+npm install
 
 # Build
 echo ""
@@ -148,7 +148,7 @@ Add target:
 # Termux-specific install and build
 termux-install:
 	@echo "=== Installing for Termux ==="
-	npm install --ignore-optional --ignore-scripts
+	npm install
 	npm run build
 	npm run bundle
 	@echo ""
@@ -465,7 +465,7 @@ PHASE 5 (Docs) - High Priority
 
 ```bash
 # 1. Build test
-npm install --ignore-optional --ignore-scripts
+npm install
 npm run build
 npm run bundle
 
