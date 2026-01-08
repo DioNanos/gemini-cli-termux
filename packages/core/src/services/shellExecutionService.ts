@@ -5,12 +5,12 @@
  */
 
 import stripAnsi from 'strip-ansi';
-import type { PtyImplementation } from '../utils/getPty.js';
-import { getPty } from '../utils/getPty.js';
+import type { PtyImplementation } from '@mmmbuto/pty-termux-utils';
+import { getPty } from '@mmmbuto/pty-termux-utils';
 import { spawn as cpSpawn } from 'node:child_process';
 import { TextDecoder } from 'node:util';
 import os from 'node:os';
-import type { IPty } from '@mmmbuto/node-pty-android-arm64';
+import type { IPty } from '@mmmbuto/pty-termux-utils';
 import { getCachedEncodingForBuffer } from '../utils/systemEncoding.js';
 import { getShellConfiguration, type ShellType } from '../utils/shell-utils.js';
 import { isBinary } from '../utils/textUtils.js';

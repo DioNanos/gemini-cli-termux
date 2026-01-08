@@ -27,6 +27,7 @@
     "@google/genai": "1.30.0",
     "@iarna/toml": "^2.2.5",
     "@joshua.litt/get-ripgrep": "^0.0.3",
+    "@mmmbuto/pty-termux-utils": "file:../../../pty-termux-utils",
     "@modelcontextprotocol/sdk": "^1.23.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.203.0",
@@ -69,7 +70,7 @@
     "zod": "^3.25.76"
   },
   "optionalDependencies": {
-    "@mmmbuto/node-pty-android-arm64": "1.1.0"
+    "@mmmbuto/node-pty-android-arm64": "~1.1.0"
   },
   "devDependencies": {
     "@google/gemini-cli-test-utils": "file:../test-utils",
