@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.24.6-termux (npm latest)
+gemini --version  # expected: 0.24.8-termux (npm latest)
 ```
 
 Build from source:
@@ -100,18 +100,22 @@ See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
 
-### Changelog (0.24.6-termux)
+If you hit `ERR_MODULE_NOT_FOUND` after an older install, you likely have the
+broken `0.24.7-termux` publish. Upgrade to `>=0.24.8-termux`.
+
+### Changelog (0.24.8-termux)
 
 - **PTY on Termux**: Uses `@mmmbuto/node-pty-android-arm64` prebuild.
 - **Deps cleanup**: Removed `@lydell/node-pty-*` and generic `node-pty`.
 - **Docs**: Updated Termux notes for PTY support.
+- **Publish fix**: Bundled CLI restored (no missing core on npm).
 
 ## Tests
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
 - Latest report:
   - [`GEMINI_TEST_REPORT_v0.24.6.md`](./GEMINI_TEST_REPORT_v0.24.6.md) — PARTIAL
-    (latest report; 0.24.6-termux latest). Notes include non‑interactive tool
+    (latest report; still 0.24.6-termux). Notes include non‑interactive tool
     confirmation limits.
 
 ## Termux-API Integration
