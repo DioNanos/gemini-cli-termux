@@ -56,6 +56,8 @@ node bundle/gemini.js --version
 
 - **Shell Integration:** Uses `@mmmbuto/node-pty-android-arm64` on Termux for
   interactive PTY support (falls back to `child_process` if unavailable).
+- **Linux ARM64:** On non-Termux Linux ARM64, uses
+  `@lydell/node-pty-linux-arm64` when available (falls back to `child_process`).
 - **Credentials:** Keys are stored in standard config files for portability (no
   dependency on system keychains).
 - **Parser:** Simplified Bash parsing to reduce heavy binary dependencies.

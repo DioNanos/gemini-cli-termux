@@ -176,6 +176,8 @@ This project uses `@mmmbuto/pty-termux-utils` as a shared library for PTY
 management across all Termux CLI projects (Gemini, Qwen, Nexus).
 
 - **Native PTY:** Uses `@mmmbuto/node-pty-android-arm64@~1.1.0` when available
+- **Linux ARM64:** Uses `@lydell/node-pty-linux-arm64@~1.2.0-beta.2` when
+  available
 - **Fallback:** Gracefully degrades to `child_process` adapter
 - **Debug Logging:** Enable with `PTY_DEBUG=1` environment variable
 - **Architecture:** See `@mmmbuto/pty-termux-utils` documentation
