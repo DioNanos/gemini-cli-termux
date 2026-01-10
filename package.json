@@ -125,6 +125,7 @@
   },
   "dependencies": {
     "@esbuild/android-arm64": "^0.27.1",
+    "@mmmbuto/node-pty-android-arm64": "~1.1.0",
     "ink": "npm:@jrichman/ink@6.4.7",
     "latest-version": "^9.0.0",
     "simple-git": "^3.28.0"
