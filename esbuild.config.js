@@ -54,7 +54,8 @@ function createWasmPlugins() {
   return [wasmBinaryPlugin, wasmLoader({ mode: 'embedded' })];
 }
 
-const external = ['@mmmbuto/node-pty-android-arm64'];
+// TERMUX PATCH: Use our PTY package for Android ARM64, plus keytar from upstream
+const external = ['@mmmbuto/node-pty-android-arm64', 'keytar'];
 
 const baseConfig = {
   bundle: true,

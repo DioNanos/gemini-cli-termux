@@ -29,7 +29,7 @@ pkg update && pkg upgrade -y
 pkg install nodejs-lts -y
 npm install -g @mmmbuto/gemini-cli-termux
 
-gemini --version  # expected: 0.24.8-termux (npm latest)
+gemini --version  # expected: 0.24.9-termux (npm latest)
 ```
 
 Build from source:
@@ -100,7 +100,7 @@ See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
 npm install -g @mmmbuto/gemini-cli-termux@latest
 ```
 
-### Changelog (0.24.8-termux)
+### Changelog (0.24.9-termux)
 
 - **PTY on Termux**: Uses `@mmmbuto/node-pty-android-arm64` prebuild.
 - **Deps cleanup**: Removed `@lydell/node-pty-*` and generic `node-pty`.

@@ -6,7 +6,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { homedir } from 'node:os';
 import * as dotenv from 'dotenv';
 
 import type { TelemetryTarget } from '@google/gemini-cli-core';
@@ -25,6 +24,7 @@ import {
   PREVIEW_GEMINI_MODEL,
   getDefaultContextMemoryOptions,
   setRuntimeContextMemoryOptions,
+  homedir,
 } from '@google/gemini-cli-core';
 import type { ContextMemoryOptions } from '@google/gemini-cli-core';
 
@@ -82,6 +82,7 @@ export async function loadConfig(
       : settings.checkpointing?.enabled,
     previewFeatures: settings.general?.previewFeatures,
     interactive: true,
+    enableInteractiveShell: true,
   };
 
   const fileService = new FileDiscoveryService(workspaceDir);
