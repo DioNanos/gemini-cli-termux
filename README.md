@@ -65,8 +65,8 @@ node bundle/gemini.js --version
 ### 📚 Complete Documentation
 
 - **Test Results**
-  - [GEMINI_TEST_REPORT_v0.24.6.md](./GEMINI_TEST_REPORT_v0.24.6.md) — PARTIAL
-    (latest report; 0.24.6-termux)
+  - [GEMINI_TEST_REPORT_v0.24.9.md](./GEMINI_TEST_REPORT_v0.24.9.md) — PASS
+    (latest report; 0.24.9-termux)
 - **[Test Suite](./GEMINI_TEST_SUITE.md)** - Test methodology and checklist
 - **[Context Memory](./docs/cli/context-memory.md)** - Memory modes, JIT + JSON,
   and setup guide
@@ -102,17 +102,25 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ### Changelog (0.24.9-termux)
 
-- **PTY on Termux**: Uses `@mmmbuto/node-pty-android-arm64` prebuild.
-- **Deps cleanup**: Removed `@lydell/node-pty-*` and generic `node-pty`.
-- **Docs**: Updated Termux notes for PTY support.
+**Upstream Merge (165 commits):**
+- Built-in Agent Skills support
+- Ink 6.4.7 update
+- Hook system enhancements
+- New `/agents` command
+- Bug fixes and performance improvements
+
+**Termux Fixes:**
+- **PTY auto-install**: Moved `@mmmbuto/node-pty-android-arm64` to dependencies
+  (no manual installation needed from tarball)
+- All Termux patches preserved and tested
+- Context memory system fully functional
 
 ## Tests
 
 - Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
 - Latest report:
-  - [`GEMINI_TEST_REPORT_v0.24.6.md`](./GEMINI_TEST_REPORT_v0.24.6.md) — PARTIAL
-    (latest report; still 0.24.6-termux). Notes include non‑interactive tool
-    confirmation limits.
+  - [`GEMINI_TEST_REPORT_v0.24.9.md`](./GEMINI_TEST_REPORT_v0.24.9.md) — PASS
+    (165 upstream commits merged, all tests passing).
 
 ## Termux-API Integration
 
