@@ -1,7 +1,9 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * @license
  */
 
 import fs from 'node:fs/promises';
@@ -34,7 +36,7 @@ const homeDirectoryCheck: WarningCheck = {
       ]);
 
       if (workspaceRealPath === homeRealPath) {
-        // If folder trust is enabled and the user trusts the home directory, don't show the warning.
+        // If folder trust is enabled and user trusts home directory, don't show warning.
         if (
           isFolderTrustEnabled(settings) &&
           isWorkspaceTrusted(settings).isTrusted
@@ -46,7 +48,7 @@ const homeDirectoryCheck: WarningCheck = {
       }
       return null;
     } catch (_err: unknown) {
-      return 'Could not verify the current directory due to a file system error.';
+      return 'Could not verify current directory due to a file system error.';
     }
   },
 };
@@ -66,7 +68,7 @@ const rootDirectoryCheck: WarningCheck = {
 
       return null;
     } catch (_err: unknown) {
-      return 'Could not verify the current directory due to a file system error.';
+      return 'Could not verify current directory due to a file system error.';
     }
   },
 };
@@ -81,6 +83,10 @@ export async function getUserStartupWarnings(
   settings: Settings,
   workspaceRoot: string = process.cwd(),
 ): Promise<string[]> {
+  // TERMUX PATCH: If hideBanner is true, skip all startup warnings
+  if (settings.ui?.hideBanner) {
+    return [];
+  }
   const results = await Promise.all(
     WARNING_CHECKS.map((check) => check.check(workspaceRoot, settings)),
   );
