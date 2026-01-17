@@ -34,7 +34,7 @@ export async function handleAutoUpdate(
     return;
   }
 
-  const installationInfo = await getInstallationInfo(
+  const installationInfo = getInstallationInfo(
     projectRoot,
     settings.merged.general.enableAutoUpdate,
   );

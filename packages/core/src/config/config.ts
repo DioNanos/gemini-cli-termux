@@ -2018,6 +2018,37 @@ export class Config {
   };
 
   /**
+   * Get context memory options from settings.
+   * TODO: Implement proper context memory options from settings.
+   */
+  getContextMemoryOptions(): import('../utils/contextMemory.js').ContextMemoryOptions | undefined {
+    // Stub implementation - context memory disabled by default
+    return {
+      enabled: false,
+      primary: 'gemini',
+      autoLoadGemini: false,
+      autoLoadJsonBase: false,
+      autoLoadJsonUser: false,
+      allowBaseWrite: false,
+      mcpImport: { enabled: false, categories: [], scope: 'none' },
+      paths: { base: '', user: '', journal: '' },
+      maxEntries: 100,
+      maxChars: 10000,
+      journalThreshold: 1000,
+      journalMaxAgeDays: 30,
+    };
+  }
+
+  /**
+   * Check if TTS (Text-to-Speech) is enabled.
+   * TODO: Implement proper TTS check from settings.
+   */
+  isTtsEnabled(): boolean {
+    // Stub implementation - TTS disabled by default
+    return false;
+  }
+
+  /**
    * Disposes of resources and removes event listeners.
    */
   async dispose(): Promise<void> {

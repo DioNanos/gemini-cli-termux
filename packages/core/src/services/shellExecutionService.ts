@@ -666,13 +666,13 @@ export class ShellExecutionService {
           );
         };
 
-        ptyProcess.onData((data: string) => {
+        ptyProcess.on('data', (data: string) => {
           const bufferData = Buffer.from(data, 'utf-8');
           handleOutput(bufferData);
         });
 
-        ptyProcess.onExit(
-          ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
+        ptyProcess.on('exit',
+          (exitCode: number, signal: number) => {
             exited = true;
             abortSignal.removeEventListener('abort', abortHandler);
             this.activePtys.delete(ptyProcess.pid);
@@ -691,7 +691,7 @@ export class ShellExecutionService {
                 rawOutput: finalBuffer,
                 output: getFullBufferText(headlessTerminal),
                 exitCode,
-                signal: signal ?? null,
+                signal: signal || null,  // Convert 0 to null for normal exit
                 error,
                 aborted: abortSignal.aborted,
                 pid: ptyProcess.pid,
@@ -736,10 +736,10 @@ export class ShellExecutionService {
                 }
               } catch (_e) {
                 // Fallback to killing just the process if the group kill fails
-                ptyProcess.kill('SIGTERM');
+                ptyProcess.kill();
                 await new Promise((res) => setTimeout(res, SIGKILL_TIMEOUT_MS));
                 if (!exited) {
-                  ptyProcess.kill('SIGKILL');
+                  ptyProcess.kill();
                 }
               }
             }

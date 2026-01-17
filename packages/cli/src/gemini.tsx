@@ -268,6 +268,8 @@ export async function startInteractiveUI(
     },
   );
 
+  /* eslint-disable */
+  // Fire-and-forget update check, intentionally not awaited
   checkForUpdates(settings)
     .then((info) => {
       handleAutoUpdate(info, settings, config.getProjectRoot());
@@ -278,6 +280,7 @@ export async function startInteractiveUI(
         debugLogger.warn('Update check failed:', err);
       }
     });
+  /* eslint-enable */
 
   registerCleanup(() => instance.unmount());
 }

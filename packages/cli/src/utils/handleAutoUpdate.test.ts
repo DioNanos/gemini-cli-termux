@@ -79,7 +79,7 @@ describe('handleAutoUpdate', () => {
   });
 
   it('should do nothing if update info is null', () => {
-    handleAutoUpdate(null, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(null, mockSettings, '/root', mockSpawn);
     expect(mockGetInstallationInfo).not.toHaveBeenCalled();
     expect(updateEventEmitter.emit).not.toHaveBeenCalled();
     expect(mockSpawn).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe('handleAutoUpdate', () => {
 
   it('should do nothing if update prompts are disabled', () => {
     mockSettings.merged.general.enableAutoUpdateNotification = false;
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     expect(mockGetInstallationInfo).not.toHaveBeenCalled();
     expect(updateEventEmitter.emit).not.toHaveBeenCalled();
     expect(mockSpawn).not.toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe('handleAutoUpdate', () => {
       packageManager: PackageManager.NPM,
     });
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
@@ -121,7 +121,7 @@ describe('handleAutoUpdate', () => {
         packageManager,
       });
 
-      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
       expect(updateEventEmitter.emit).not.toHaveBeenCalled();
       expect(mockSpawn).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe('handleAutoUpdate', () => {
       packageManager: PackageManager.NPM,
     });
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
@@ -153,7 +153,7 @@ describe('handleAutoUpdate', () => {
       packageManager: PackageManager.NPM,
     });
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
@@ -174,7 +174,7 @@ describe('handleAutoUpdate', () => {
       mockChildProcess.emit('close', 0);
     }, 0);
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(mockSpawn).toHaveBeenCalledOnce();
   });
@@ -194,7 +194,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-failed', {
@@ -218,7 +218,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-failed', {
@@ -242,7 +242,7 @@ describe('handleAutoUpdate', () => {
       packageManager: PackageManager.NPM,
     });
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'npm i -g @google/gemini-cli@nightly',
@@ -269,7 +269,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-success', {
