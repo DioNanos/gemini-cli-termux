@@ -1,38 +1,192 @@
 # 🤖 Gemini CLI – Termux Edition
 
-Android/Termux optimized fork of Google Gemini CLI. Installs cleanly on Termux
-with a native ARM64 PTY prebuild and clipboard detection for Termux.
+Android/Termux optimized fork of **Google Gemini CLI** (`google-gemini/gemini-cli`).
+
+- ✅ Tracks upstream regularly
+- ✅ Minimal, Termux-focused patches
+- ✅ Tested release: **v0.26.0-termux** (tag: `cf4a6ac20`)
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
-[![ko-fi](https://img.shields.io/badge/☕_Support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi)](https://ko-fi.com/dionanos)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
+[![ko-fi](https://img.shields.io/badge/%E2%98%95%20Support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi)](https://ko-fi.com/dionanos)
 
 ---
 
-## What This Is
+## What is this?
 
-**Optimized Termux edition** of `google-gemini/gemini-cli`.
+This repository packages a **Termux-first build** of Gemini CLI:
 
-This project focuses on maintaining a first-class experience for Gemini on
-Android/Termux. It provides critical adaptations for the mobile environment
-while tracking upstream development closely.
+- **Upstream project**: https://github.com/google-gemini/gemini-cli
+- **Upstream docs**: https://geminicli.com/docs/
+- **This fork**: https://github.com/DioNanos/gemini-cli-termux
 
-- **Termux-First:** Pre-configured for Android filesystem and clipboard.
-- **Lightweight:** Native dependencies managed for ARM64 without complex
-  compilation.
-- **Up-to-Date:** Synchronized with the latest Google Gemini CLI features.
+If you are on **macOS / Linux / Windows**, you should install the upstream package:
+
+```bash
+npm install -g @google/gemini-cli
+```
+
+---
+
+## Why a Termux fork?
+
+Gemini CLI is designed for desktop platforms. On Termux/Android, a few dependencies and environment assumptions can break or degrade UX.
+
+This fork keeps the upstream experience intact while adding the **smallest possible patch-set** to make it reliable on Android:
+
+- Native **ARM64 PTY** support (no node-gyp build on device)
+- Termux-friendly clipboard detection
+- Mobile filesystem + environment guardrails
+
+---
 
 ## Installation (Termux)
 
+### Prerequisites
+
 ```bash
 pkg update && pkg upgrade -y
-pkg install nodejs-lts -y
-npm install -g @mmmbuto/gemini-cli-termux
-
-gemini --version  # expected: 0.24.10-termux (npm latest)
+pkg install -y nodejs-lts
 ```
 
-Build from source:
+Optional but recommended for a better mobile experience:
+
+```bash
+pkg install -y termux-api
+```
+
+### Install
+
+```bash
+npm install -g @mmmbuto/gemini-cli-termux@latest
+
+gemini --version
+```
+
+### Update
+
+```bash
+npm install -g @mmmbuto/gemini-cli-termux@latest
+```
+
+### Upstream release channels
+
+Upstream publishes `latest`, `preview`, and `nightly` builds. This fork is meant to track upstream **stable** while keeping Termux fixes.
+
+---
+
+## Quick start
+
+Interactive mode:
+
+```bash
+cd /path/to/your/project
+
+gemini
+```
+
+Useful slash commands inside the session:
+
+```text
+/help
+/auth
+```
+
+Headless / CI usage:
+
+```bash
+gemini -p "Explain the project structure" \
+  -o json
+```
+
+---
+
+## Authentication
+
+Gemini CLI supports multiple authentication methods (Google login, Gemini API key, Vertex AI). Termux users can use the same options as upstream.
+
+### Interactive (recommended)
+
+Start `gemini`, then run:
+
+```bash
+/auth
+```
+
+Follow the on-screen flow.
+
+> Note (Android): Google login uses a browser flow that redirects to a `localhost` URL the CLI listens on during setup. Use the browser on the same device.
+
+### Environment variables (headless / CI)
+
+**Gemini API key (Google AI Studio):**
+
+```bash
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+```
+
+**Vertex AI (examples):**
+
+```bash
+export GOOGLE_GENAI_USE_VERTEXAI=true
+export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
+export GOOGLE_CLOUD_LOCATION="us-central1"
+
+# Option A: API key
+export GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
+
+# Option B: Service account
+# export GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/to/keyfile.json"
+```
+
+**Persisting without leaking secrets:** create a `.gemini/.env` file (project-level) or `~/.gemini/.env` (user-level).
+
+Full docs:
+
+- https://google-gemini.github.io/gemini-cli/docs/get-started/authentication.html
+
+---
+
+## Termux optimizations (patches)
+
+This fork applies a minimal set of Termux-specific fixes:
+
+- **Clipboard detection fixes** for Android/Termux environments.
+- **ARM64 PTY prebuild** for responsive interactive UI on Android.
+- **Termux-API tool discovery** (when `termux-api` is installed).
+- **Mobile-safe guards** (avoids desktop-only assumptions for paths, keychains, etc.).
+
+All patches are documented under:
+
+- `docs/patches/`
+
+---
+
+## Known differences vs upstream (v0.26.0-termux)
+
+From the latest Termux test report:
+
+- `gemini extensions settings` was renamed to `gemini extensions config`
+- `auth` / `logout` are functional but may not appear in the top-level help output
+- A standalone PTY require-test may fail in some environments even when PTY works in the app
+
+Full report:
+
+- [GEMINI_TEST_REPORT_v0.26.0.md](./GEMINI_TEST_REPORT_v0.26.0.md)
+
+---
+
+## Documentation
+
+- **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
+- **Test Report (latest)**: [GEMINI_TEST_REPORT_v0.26.0.md](./GEMINI_TEST_REPORT_v0.26.0.md)
+- **Context Memory**: `docs/cli/context-memory.md`
+- **Patches & Fixes**: `docs/patches/`
+
+---
+
+## Build from source (Termux)
 
 ```bash
 git clone https://github.com/DioNanos/gemini-cli-termux.git
@@ -42,157 +196,18 @@ npm run build && npm run bundle
 node bundle/gemini.js --version
 ```
 
-## Termux Optimizations
+---
 
-- **Smart Clipboard:** Auto-detects Android environment to enable seamless
-  clipboard operations (fixes `TERMUX__PREFIX`).
-- **Streamlined Install:** Uses `@mmmbuto/node-pty-android-arm64` prebuild (no
-  node-gyp) and file-based tokens instead of keychain.
-- **Clean UX:** Suppresses desktop-centric warnings (like home directory checks)
-  to optimize the experience for mobile terminal usage.
-- **ARM64 Native:** Bundled specifically for Android architecture.
+## Disclaimer
 
-## Environment Specifics
+This is an **independent community fork** created to improve the Termux experience.
 
-- **Shell Integration:** Uses `@mmmbuto/node-pty-android-arm64` on Termux for
-  interactive PTY support (falls back to `child_process` if unavailable).
-- **Credentials:** Keys are stored in standard config files for portability (no
-  dependency on system keychains).
-- **Parser:** Simplified Bash parsing to reduce heavy binary dependencies.
+Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
 
-## Documentation & Fixes
+---
 
-### 📚 Complete Documentation
+## Support
 
-- **Test Results**
-  - [GEMINI_TEST_REPORT_v0.24.10.md](./GEMINI_TEST_REPORT_v0.24.10.md) — PASS
-    (latest report; 0.24.10-termux)
-- **[Test Suite](./GEMINI_TEST_SUITE.md)** - Test methodology and checklist
-- **[Context Memory](./docs/cli/context-memory.md)** - Memory modes, JIT + JSON,
-  and setup guide
-- **[Patches & Fixes](./docs/patches/)** - Known issues and workarounds
+If this project saved you time (or helped you run real work from your phone), you can support it here:
 
-### 🔧 Common Issues & Solutions
-
-| Issue                 | Quick Fix                     | Documentation                                       |
-| --------------------- | ----------------------------- | --------------------------------------------------- |
-| CLI syntax (`--json`) | Use `-o json` instead         | [Details](./docs/patches/cli-syntax-differences.md) |
-| Hooks commands        | Use interactive mode `/hooks` | [Details](./docs/patches/hooks-interactive-only.md) |
-
-### 📝 Quick Reference
-
-```bash
-# Correct usage examples
-gemini -o json "your prompt"              # ✅ JSON output
-gemini --output-format json "prompt"      # ✅ Also works
-gemini --json "prompt"                    # ❌ Wrong syntax
-
-# Hooks management (interactive only)
-gemini           # Start interactive mode
-/hooks           # Manage hooks
-```
-
-See [docs/patches/README.md](./docs/patches/README.md) for complete solutions.
-
-## Updating
-
-```bash
-npm install -g @mmmbuto/gemini-cli-termux@latest
-```
-
-### Changelog (0.24.10-termux)
-
-**Upstream Merge (165 commits):**
-
-- Built-in Agent Skills support
-- Ink 6.4.7 update
-- Hook system enhancements
-- New `/agents` command
-- Bug fixes and performance improvements
-
-**Termux Fixes:**
-
-- **PTY auto-install**: Moved `@mmmbuto/node-pty-android-arm64` to dependencies
-  (no manual installation needed from tarball)
-- All Termux patches preserved and tested
-- Context memory system fully functional
-
-## Tests
-
-- Suite: [`GEMINI_TEST_SUITE.md`](./GEMINI_TEST_SUITE.md)
-- Latest report:
-  - [`GEMINI_TEST_REPORT_v0.24.10.md`](./GEMINI_TEST_REPORT_v0.24.10.md) — PASS
-    (165 upstream commits merged, all tests passing).
-
-## Termux-API Integration
-
-This fork supports optional integration with Termux-API commands for Android
-device access. Enable Gemini to interact with your device hardware and Android
-features.
-
-## Context memory + TTS note:
-
-- The Termux fork ships JSON context memory at
-  `~/.gemini/context_memory/{base.json,user.json,user.journal.jsonl}`. In
-  `/settings → Memory` you can select **Memory Mode** (default / jit / jit+json)
-  and adjust Context Memory options (autoload, primary ordering, base writes).
-- TTS notifications are controlled by
-  `/settings → Notifications → Enable TTS Notifications`. When disabled,
-  `termux-tts-speak` is blocked even if an agent asks for it. These behaviors
-  are merge-safe and confined to Termux patches.
-
-### Quick Setup
-
-```bash
-# Install Termux-API package
-pkg install termux-api jq
-
-# Copy tool discovery scripts
-mkdir -p ~/.config/gemini/termux-tools
-cp scripts/termux-tools/*.sh ~/.config/gemini/termux-tools/
-
-# Configure in settings
-cat > ~/.config/gemini/settings.json << 'EOF'
-{
-  "tool_discovery_command": "bash ~/.config/gemini/termux-tools/discovery.sh",
-  "tool_call_command": "bash ~/.config/gemini/termux-tools/call.sh"
-}
-EOF
-
-# Test
-gemini "What's my battery status?"
-```
-
-### Supported Commands
-
-Battery, Clipboard, Toast, Notifications, TTS, Vibrate, Torch, WiFi info,
-Location, Camera, Dialog, Share, and more.
-
-See [docs/termux-api/](./docs/termux-api/) for complete documentation.
-
-## Upstream Tracking
-
-- Upstream: https://github.com/google-gemini/gemini-cli
-- Divergent files: `esbuild.config.js`, `docs/TERMUX.md`, `package.json`,
-  `README.md`, `test-gemini/*`
-
-## PTY Support (Shared Library)
-
-This project uses `@mmmbuto/pty-termux-utils` as a shared library for PTY
-management across all Termux CLI projects (Gemini, Qwen, Nexus).
-
-- **Native PTY:** Uses `@mmmbuto/node-pty-android-arm64@~1.1.0` when available
-- **Linux ARM64:** Uses `@lydell/node-pty-linux-arm64@~1.2.0-beta.2` when
-  available
-- **Fallback:** Gracefully degrades to `child_process` adapter
-- **Debug Logging:** Enable with `PTY_DEBUG=1` environment variable
-- **Architecture:** See `@mmmbuto/pty-termux-utils` documentation
-
-```bash
-# Enable PTY debug logging
-PTY_DEBUG=1 gemini "your prompt"
-```
-
-## License
-
-Apache 2.0 (same as upstream). See LICENSE.
+- ☕ Ko-fi: https://ko-fi.com/dionanos
