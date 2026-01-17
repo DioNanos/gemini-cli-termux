@@ -1,0 +1,1681 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { describe, it, expect, vi } from 'vitest';
+import { CoreToolScheduler, PLAN_MODE_DENIAL_MESSAGE, } from './coreToolScheduler.js';
+import { DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES, DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD, BaseDeclarativeTool, BaseToolInvocation, ToolConfirmationOutcome, Kind, ApprovalMode, HookSystem, PolicyDecision, ToolErrorType, } from '../index.js';
+import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
+import { MockModifiableTool, MockTool, MOCK_TOOL_SHOULD_CONFIRM_EXECUTE, } from '../test-utils/mock-tool.js';
+import * as modifiableToolModule from '../tools/modifiable-tool.js';
+import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
+import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
+vi.mock('fs/promises', () => ({
+    writeFile: vi.fn(),
+}));
+class TestApprovalTool extends BaseDeclarativeTool {
+    config;
+    static Name = 'testApprovalTool';
+    constructor(config, messageBus) {
+        super(TestApprovalTool.Name, 'TestApprovalTool', 'A tool for testing approval logic', Kind.Edit, {
+            properties: { id: { type: 'string' } },
+            required: ['id'],
+            type: 'object',
+        }, messageBus);
+        this.config = config;
+    }
+    createInvocation(params, messageBus, _toolName, _toolDisplayName) {
+        return new TestApprovalInvocation(this.config, params, messageBus);
+    }
+}
+class TestApprovalInvocation extends BaseToolInvocation {
+    config;
+    constructor(config, params, messageBus) {
+        super(params, messageBus);
+        this.config = config;
+    }
+    getDescription() {
+        return `Test tool ${this.params.id}`;
+    }
+    async shouldConfirmExecute() {
+        // Need confirmation unless approval mode is AUTO_EDIT
+        if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
+            return false;
+        }
+        return {
+            type: 'edit',
+            title: `Confirm Test Tool ${this.params.id}`,
+            fileName: `test-${this.params.id}.txt`,
+            filePath: `/test-${this.params.id}.txt`,
+            fileDiff: 'Test diff content',
+            originalContent: '',
+            newContent: 'Test content',
+            onConfirm: async (outcome) => {
+                if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+                    this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+                }
+            },
+        };
+    }
+    async execute() {
+        return {
+            llmContent: `Executed test tool ${this.params.id}`,
+            returnDisplay: `Executed test tool ${this.params.id}`,
+        };
+    }
+}
+class AbortDuringConfirmationInvocation extends BaseToolInvocation {
+    abortController;
+    abortError;
+    constructor(abortController, abortError, params, messageBus) {
+        super(params, messageBus);
+        this.abortController = abortController;
+        this.abortError = abortError;
+    }
+    async shouldConfirmExecute(_signal) {
+        this.abortController.abort();
+        throw this.abortError;
+    }
+    async execute(_abortSignal) {
+        throw new Error('execute should not be called when confirmation fails');
+    }
+    getDescription() {
+        return 'Abort during confirmation invocation';
+    }
+}
+class AbortDuringConfirmationTool extends BaseDeclarativeTool {
+    abortController;
+    abortError;
+    constructor(abortController, abortError, messageBus) {
+        super('abortDuringConfirmationTool', 'Abort During Confirmation Tool', 'A tool that aborts while confirming execution.', Kind.Other, {
+            type: 'object',
+            properties: {},
+        }, messageBus);
+        this.abortController = abortController;
+        this.abortError = abortError;
+    }
+    createInvocation(params, messageBus, _toolName, _toolDisplayName) {
+        return new AbortDuringConfirmationInvocation(this.abortController, this.abortError, params, messageBus);
+    }
+}
+async function waitForStatus(onToolCallsUpdate, status, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const check = () => {
+            if (Date.now() - startTime > timeout) {
+                const seenStatuses = onToolCallsUpdate.mock.calls
+                    .flatMap((call) => call[0])
+                    .map((toolCall) => toolCall.status);
+                reject(new Error(`Timed out waiting for status "${status}". Seen statuses: ${seenStatuses.join(', ')}`));
+                return;
+            }
+            const foundCall = onToolCallsUpdate.mock.calls
+                .flatMap((call) => call[0])
+                .find((toolCall) => toolCall.status === status);
+            if (foundCall) {
+                resolve(foundCall);
+            }
+            else {
+                setTimeout(check, 10); // Check again in 10ms
+            }
+        };
+        check();
+    });
+}
+function createMockConfig(overrides = {}) {
+    const defaultToolRegistry = {
+        getTool: () => undefined,
+        getToolByName: () => undefined,
+        getFunctionDeclarations: () => [],
+        tools: new Map(),
+        discovery: {},
+        registerTool: () => { },
+        getToolByDisplayName: () => undefined,
+        getTools: () => [],
+        discoverTools: async () => { },
+        getAllTools: () => [],
+        getToolsByServer: () => [],
+        getExperiments: () => { },
+    };
+    const baseConfig = {
+        getSessionId: () => 'test-session-id',
+        getUsageStatisticsEnabled: () => true,
+        getDebugMode: () => false,
+        isInteractive: () => true,
+        getApprovalMode: () => ApprovalMode.DEFAULT,
+        setApprovalMode: () => { },
+        getAllowedTools: () => [],
+        getContentGeneratorConfig: () => ({
+            model: 'test-model',
+            authType: 'oauth-personal',
+        }),
+        getShellExecutionConfig: () => ({
+            terminalWidth: 90,
+            terminalHeight: 30,
+            sanitizationConfig: {
+                enableEnvironmentVariableRedaction: true,
+                allowedEnvironmentVariables: [],
+                blockedEnvironmentVariables: [],
+            },
+        }),
+        storage: {
+            getProjectTempDir: () => '/tmp',
+        },
+        getTruncateToolOutputThreshold: () => DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
+        getTruncateToolOutputLines: () => DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES,
+        getToolRegistry: () => defaultToolRegistry,
+        getActiveModel: () => DEFAULT_GEMINI_MODEL,
+        getGeminiClient: () => null,
+        getMessageBus: () => createMockMessageBus(),
+        getEnableHooks: () => false,
+        getExperiments: () => { },
+    };
+    const finalConfig = { ...baseConfig, ...overrides };
+    // Patch the policy engine to use the final config if not overridden
+    if (!overrides.getPolicyEngine) {
+        finalConfig.getPolicyEngine = () => ({
+            check: async (toolCall, _serverName) => {
+                // Mock simple policy logic for tests
+                const mode = finalConfig.getApprovalMode();
+                if (mode === ApprovalMode.YOLO) {
+                    return { decision: PolicyDecision.ALLOW };
+                }
+                const allowed = finalConfig.getAllowedTools();
+                if (allowed &&
+                    (allowed.includes(toolCall.name) ||
+                        allowed.some((p) => toolCall.name.startsWith(p)))) {
+                    return { decision: PolicyDecision.ALLOW };
+                }
+                return { decision: PolicyDecision.ASK_USER };
+            },
+        });
+    }
+    return finalConfig;
+}
+describe('CoreToolScheduler', () => {
+    it('should cancel a tool call if the signal is aborted before confirmation', async () => {
+        const mockTool = new MockTool({
+            name: 'mockTool',
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => declarativeTool,
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            isInteractive: () => false,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-1',
+        };
+        abortController.abort();
+        await scheduler.schedule([request], abortController.signal);
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls[0].status).toBe('cancelled');
+    });
+    it('should cancel all tools when cancelAll is called', async () => {
+        const mockTool1 = new MockTool({
+            name: 'mockTool1',
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const mockTool2 = new MockTool({ name: 'mockTool2' });
+        const mockTool3 = new MockTool({ name: 'mockTool3' });
+        const mockToolRegistry = {
+            getTool: (name) => {
+                if (name === 'mockTool1')
+                    return mockTool1;
+                if (name === 'mockTool2')
+                    return mockTool2;
+                if (name === 'mockTool3')
+                    return mockTool3;
+                return undefined;
+            },
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: (name) => {
+                if (name === 'mockTool1')
+                    return mockTool1;
+                if (name === 'mockTool2')
+                    return mockTool2;
+                if (name === 'mockTool3')
+                    return mockTool3;
+                return undefined;
+            },
+            getToolByDisplayName: () => undefined,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getHookSystem: () => undefined,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const requests = [
+            {
+                callId: '1',
+                name: 'mockTool1',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+            {
+                callId: '2',
+                name: 'mockTool2',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+            {
+                callId: '3',
+                name: 'mockTool3',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+        ];
+        // Don't await, let it run in the background
+        void scheduler.schedule(requests, abortController.signal);
+        // Wait for the first tool to be awaiting approval
+        await waitForStatus(onToolCallsUpdate, 'awaiting_approval');
+        // Cancel all operations
+        scheduler.cancelAll(abortController.signal);
+        abortController.abort(); // Also fire the signal
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(3);
+        expect(completedCalls.find((c) => c.request.callId === '1')?.status).toBe('cancelled');
+        expect(completedCalls.find((c) => c.request.callId === '2')?.status).toBe('cancelled');
+        expect(completedCalls.find((c) => c.request.callId === '3')?.status).toBe('cancelled');
+    });
+    it('should cancel all tools in a batch when one is cancelled via confirmation', async () => {
+        const mockTool1 = new MockTool({
+            name: 'mockTool1',
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const mockTool2 = new MockTool({ name: 'mockTool2' });
+        const mockTool3 = new MockTool({ name: 'mockTool3' });
+        const mockToolRegistry = {
+            getTool: (name) => {
+                if (name === 'mockTool1')
+                    return mockTool1;
+                if (name === 'mockTool2')
+                    return mockTool2;
+                if (name === 'mockTool3')
+                    return mockTool3;
+                return undefined;
+            },
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: (name) => {
+                if (name === 'mockTool1')
+                    return mockTool1;
+                if (name === 'mockTool2')
+                    return mockTool2;
+                if (name === 'mockTool3')
+                    return mockTool3;
+                return undefined;
+            },
+            getToolByDisplayName: () => undefined,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getHookSystem: () => undefined,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const requests = [
+            {
+                callId: '1',
+                name: 'mockTool1',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+            {
+                callId: '2',
+                name: 'mockTool2',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+            {
+                callId: '3',
+                name: 'mockTool3',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-id-1',
+            },
+        ];
+        // Don't await, let it run in the background
+        void scheduler.schedule(requests, abortController.signal);
+        // Wait for the first tool to be awaiting approval
+        const awaitingCall = (await waitForStatus(onToolCallsUpdate, 'awaiting_approval'));
+        // Cancel the first tool via its confirmation handler
+        const confirmationDetails = awaitingCall.confirmationDetails;
+        await confirmationDetails.onConfirm(ToolConfirmationOutcome.Cancel);
+        abortController.abort(); // User cancelling often involves an abort signal
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(3);
+        expect(completedCalls.find((c) => c.request.callId === '1')?.status).toBe('cancelled');
+        expect(completedCalls.find((c) => c.request.callId === '2')?.status).toBe('cancelled');
+        expect(completedCalls.find((c) => c.request.callId === '3')?.status).toBe('cancelled');
+    });
+    it('should mark tool call as cancelled when abort happens during confirmation error', async () => {
+        const abortController = new AbortController();
+        const abortError = new Error('Abort requested during confirmation');
+        const declarativeTool = new AbortDuringConfirmationTool(abortController, abortError, createMockMessageBus());
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => declarativeTool,
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            isInteractive: () => true,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const request = {
+            callId: 'abort-1',
+            name: 'abortDuringConfirmationTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-abort',
+        };
+        await scheduler.schedule([request], abortController.signal);
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls[0].status).toBe('cancelled');
+        const statuses = onToolCallsUpdate.mock.calls.flatMap((call) => call[0].map((toolCall) => toolCall.status));
+        expect(statuses).not.toContain('error');
+    });
+    it('should error when tool requires confirmation in non-interactive mode', async () => {
+        const mockTool = new MockTool({
+            name: 'mockTool',
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => declarativeTool,
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            isInteractive: () => false,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-1',
+        };
+        await scheduler.schedule([request], abortController.signal);
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls[0].status).toBe('error');
+        const erroredCall = completedCalls[0];
+        const errorResponse = erroredCall.response;
+        const errorParts = errorResponse.responseParts;
+        // @ts-expect-error - accessing internal structure of FunctionResponsePart
+        const errorMessage = errorParts[0].functionResponse.response.error;
+        expect(errorMessage).toContain('Tool execution for "mockTool" requires user confirmation, which is not supported in non-interactive mode.');
+    });
+});
+describe('CoreToolScheduler with payload', () => {
+    it('should update args and diff and execute tool when payload is provided', async () => {
+        const mockTool = new MockModifiableTool();
+        mockTool.executeFn = vi.fn();
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => declarativeTool,
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockModifiableTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-2',
+        };
+        await scheduler.schedule([request], abortController.signal);
+        const awaitingCall = (await waitForStatus(onToolCallsUpdate, 'awaiting_approval'));
+        const confirmationDetails = awaitingCall.confirmationDetails;
+        if (confirmationDetails) {
+            const payload = { newContent: 'final version' };
+            await confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce, payload);
+        }
+        // After internal update, the tool should be awaiting approval again with the NEW content.
+        const updatedAwaitingCall = (await waitForStatus(onToolCallsUpdate, 'awaiting_approval'));
+        // Now confirm for real to execute.
+        await updatedAwaitingCall.confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+        // Wait for the tool execution to complete
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls[0].status).toBe('success');
+        expect(mockTool.executeFn).toHaveBeenCalledWith({
+            newContent: 'final version',
+        });
+    });
+});
+class MockEditToolInvocation extends BaseToolInvocation {
+    constructor(params, messageBus) {
+        super(params, messageBus);
+    }
+    getDescription() {
+        return 'A mock edit tool invocation';
+    }
+    async shouldConfirmExecute(_abortSignal) {
+        return {
+            type: 'edit',
+            title: 'Confirm Edit',
+            fileName: 'test.txt',
+            filePath: 'test.txt',
+            fileDiff: '--- test.txt\n+++ test.txt\n@@ -1,1 +1,1 @@\n-old content\n+new content',
+            originalContent: 'old content',
+            newContent: 'new content',
+            onConfirm: async () => { },
+        };
+    }
+    async execute(_abortSignal) {
+        return {
+            llmContent: 'Edited successfully',
+            returnDisplay: 'Edited successfully',
+        };
+    }
+}
+class MockEditTool extends BaseDeclarativeTool {
+    constructor(messageBus) {
+        super('mockEditTool', 'mockEditTool', 'A mock edit tool', Kind.Edit, {}, messageBus);
+    }
+    createInvocation(params, messageBus, _toolName, _toolDisplayName) {
+        return new MockEditToolInvocation(params, messageBus);
+    }
+}
+describe('CoreToolScheduler edit cancellation', () => {
+    it('should preserve diff when an edit is cancelled', async () => {
+        const mockEditTool = new MockEditTool(createMockMessageBus());
+        const mockToolRegistry = {
+            getTool: () => mockEditTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => mockEditTool,
+            getToolByDisplayName: () => mockEditTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockEditTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-1',
+        };
+        await scheduler.schedule([request], abortController.signal);
+        const awaitingCall = (await waitForStatus(onToolCallsUpdate, 'awaiting_approval'));
+        // Cancel the edit
+        const confirmationDetails = awaitingCall.confirmationDetails;
+        if (confirmationDetails) {
+            await confirmationDetails.onConfirm(ToolConfirmationOutcome.Cancel);
+        }
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls[0].status).toBe('cancelled');
+        // Check that the diff is preserved
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cancelledCall = completedCalls[0];
+        expect(cancelledCall.response.resultDisplay).toBeDefined();
+        expect(cancelledCall.response.resultDisplay.fileDiff).toBe('--- test.txt\n+++ test.txt\n@@ -1,1 +1,1 @@\n-old content\n+new content');
+        expect(cancelledCall.response.resultDisplay.fileName).toBe('test.txt');
+    });
+});
+describe('CoreToolScheduler YOLO mode', () => {
+    it('should execute tool requiring confirmation directly without waiting', async () => {
+        // Arrange
+        const executeFn = vi.fn().mockResolvedValue({
+            llmContent: 'Tool executed',
+            returnDisplay: 'Tool executed',
+        });
+        const mockTool = new MockTool({
+            name: 'mockTool',
+            execute: executeFn,
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            // Other properties are not needed for this test but are included for type consistency.
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        // Configure the scheduler for YOLO mode.
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO,
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockTool',
+            args: { param: 'value' },
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-yolo',
+        };
+        // Act
+        await scheduler.schedule([request], abortController.signal);
+        // Wait for the tool execution to complete
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        // Assert
+        // 1. The tool's execute method was called directly.
+        expect(executeFn).toHaveBeenCalledWith({ param: 'value' });
+        // 2. The tool call status never entered 'awaiting_approval'.
+        const statusUpdates = onToolCallsUpdate.mock.calls
+            .map((call) => call[0][0]?.status)
+            .filter(Boolean);
+        expect(statusUpdates).not.toContain('awaiting_approval');
+        expect(statusUpdates).toEqual([
+            'validating',
+            'scheduled',
+            'executing',
+            'success',
+        ]);
+        // 3. The final callback indicates the tool call was successful.
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(1);
+        const completedCall = completedCalls[0];
+        expect(completedCall.status).toBe('success');
+        if (completedCall.status === 'success') {
+            expect(completedCall.response.resultDisplay).toBe('Tool executed');
+        }
+    });
+});
+describe('CoreToolScheduler request queueing', () => {
+    it('should queue a request if another is running', async () => {
+        let resolveFirstCall;
+        const firstCallPromise = new Promise((resolve) => {
+            resolveFirstCall = resolve;
+        });
+        const executeFn = vi.fn().mockImplementation(() => firstCallPromise);
+        const mockTool = new MockTool({ name: 'mockTool', execute: executeFn });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO, // Use YOLO to avoid confirmation prompts
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request1 = {
+            callId: '1',
+            name: 'mockTool',
+            args: { a: 1 },
+            isClientInitiated: false,
+            prompt_id: 'prompt-1',
+        };
+        const request2 = {
+            callId: '2',
+            name: 'mockTool',
+            args: { b: 2 },
+            isClientInitiated: false,
+            prompt_id: 'prompt-2',
+        };
+        // Schedule the first call, which will pause execution.
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        scheduler.schedule([request1], abortController.signal);
+        // Wait for the first call to be in the 'executing' state.
+        await waitForStatus(onToolCallsUpdate, 'executing');
+        // Schedule the second call while the first is "running".
+        const schedulePromise2 = scheduler.schedule([request2], abortController.signal);
+        // Ensure the second tool call hasn't been executed yet.
+        expect(executeFn).toHaveBeenCalledWith({ a: 1 });
+        // Complete the first tool call.
+        resolveFirstCall({
+            llmContent: 'First call complete',
+            returnDisplay: 'First call complete',
+        });
+        // Wait for the second schedule promise to resolve.
+        await schedulePromise2;
+        // Let the second call finish.
+        const secondCallResult = {
+            llmContent: 'Second call complete',
+            returnDisplay: 'Second call complete',
+        };
+        // Since the mock is shared, we need to resolve the current promise.
+        // In a real scenario, a new promise would be created for the second call.
+        resolveFirstCall(secondCallResult);
+        await vi.waitFor(() => {
+            // Now the second tool call should have been executed.
+            expect(executeFn).toHaveBeenCalledTimes(2);
+        });
+        expect(executeFn).toHaveBeenCalledWith({ b: 2 });
+        // Wait for the second completion.
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalledTimes(2);
+        });
+        // Verify the completion callbacks were called correctly.
+        expect(onAllToolCallsComplete.mock.calls[0][0][0].status).toBe('success');
+        expect(onAllToolCallsComplete.mock.calls[1][0][0].status).toBe('success');
+    });
+    it('should auto-approve a tool call if it is on the allowedTools list', async () => {
+        // Arrange
+        const executeFn = vi.fn().mockResolvedValue({
+            llmContent: 'Tool executed',
+            returnDisplay: 'Tool executed',
+        });
+        const mockTool = new MockTool({
+            name: 'mockTool',
+            execute: executeFn,
+            shouldConfirmExecute: MOCK_TOOL_SHOULD_CONFIRM_EXECUTE,
+        });
+        const declarativeTool = mockTool;
+        const toolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        // Configure the scheduler to auto-approve the specific tool call.
+        const mockConfig = createMockConfig({
+            getAllowedTools: () => ['mockTool'], // Auto-approve this tool
+            getToolRegistry: () => toolRegistry,
+            getShellExecutionConfig: () => ({
+                terminalWidth: 80,
+                terminalHeight: 24,
+                sanitizationConfig: {
+                    enableEnvironmentVariableRedaction: true,
+                    allowedEnvironmentVariables: [],
+                    blockedEnvironmentVariables: [],
+                },
+            }),
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockTool',
+            args: { param: 'value' },
+            isClientInitiated: false,
+            prompt_id: 'prompt-auto-approved',
+        };
+        // Act
+        await scheduler.schedule([request], abortController.signal);
+        // Wait for the tool execution to complete
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        // Assert
+        // 1. The tool's execute method was called directly.
+        expect(executeFn).toHaveBeenCalledWith({ param: 'value' });
+        // 2. The tool call status never entered 'awaiting_approval'.
+        const statusUpdates = onToolCallsUpdate.mock.calls
+            .map((call) => call[0][0]?.status)
+            .filter(Boolean);
+        expect(statusUpdates).not.toContain('awaiting_approval');
+        expect(statusUpdates).toEqual([
+            'validating',
+            'scheduled',
+            'executing',
+            'success',
+        ]);
+        // 3. The final callback indicates the tool call was successful.
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(1);
+        const completedCall = completedCalls[0];
+        expect(completedCall.status).toBe('success');
+        if (completedCall.status === 'success') {
+            expect(completedCall.response.resultDisplay).toBe('Tool executed');
+        }
+    });
+    it('should require approval for a chained shell command even when prefix is allowlisted', async () => {
+        const executeFn = vi.fn().mockResolvedValue({
+            llmContent: 'Shell command executed',
+            returnDisplay: 'Shell command executed',
+        });
+        const mockShellTool = new MockTool({
+            name: 'run_shell_command',
+            shouldConfirmExecute: (params) => Promise.resolve({
+                type: 'exec',
+                title: 'Confirm Shell Command',
+                command: String(params['command'] ?? ''),
+                rootCommand: 'git',
+                rootCommands: ['git'],
+                onConfirm: async () => { },
+            }),
+            execute: () => executeFn({}),
+        });
+        const toolRegistry = {
+            getTool: () => mockShellTool,
+            getToolByName: () => mockShellTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => mockShellTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getAllowedTools: () => ['run_shell_command(git)'],
+            getShellExecutionConfig: () => ({
+                terminalWidth: 80,
+                terminalHeight: 24,
+                sanitizationConfig: {
+                    enableEnvironmentVariableRedaction: true,
+                    allowedEnvironmentVariables: [],
+                    blockedEnvironmentVariables: [],
+                },
+            }),
+            getToolRegistry: () => toolRegistry,
+            getHookSystem: () => undefined,
+            getPolicyEngine: () => ({
+                check: async () => ({ decision: PolicyDecision.ASK_USER }),
+            }),
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: 'shell-1',
+            name: 'run_shell_command',
+            args: { command: 'git status && rm -rf /tmp/should-not-run' },
+            isClientInitiated: false,
+            prompt_id: 'prompt-shell-auto-approved',
+        };
+        await scheduler.schedule([request], abortController.signal);
+        const statusUpdates = onToolCallsUpdate.mock.calls
+            .map((call) => call[0][0]?.status)
+            .filter(Boolean);
+        expect(statusUpdates).toContain('awaiting_approval');
+        expect(executeFn).not.toHaveBeenCalled();
+        expect(onAllToolCallsComplete).not.toHaveBeenCalled();
+    }, 20000);
+    it('should handle two synchronous calls to schedule', async () => {
+        const executeFn = vi.fn().mockResolvedValue({
+            llmContent: 'Tool executed',
+            returnDisplay: 'Tool executed',
+        });
+        const mockTool = new MockTool({ name: 'mockTool', execute: executeFn });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request1 = {
+            callId: '1',
+            name: 'mockTool',
+            args: { a: 1 },
+            isClientInitiated: false,
+            prompt_id: 'prompt-1',
+        };
+        const request2 = {
+            callId: '2',
+            name: 'mockTool',
+            args: { b: 2 },
+            isClientInitiated: false,
+            prompt_id: 'prompt-2',
+        };
+        // Schedule two calls synchronously.
+        const schedulePromise1 = scheduler.schedule([request1], abortController.signal);
+        const schedulePromise2 = scheduler.schedule([request2], abortController.signal);
+        // Wait for both promises to resolve.
+        await Promise.all([schedulePromise1, schedulePromise2]);
+        // Ensure the tool was called twice with the correct arguments.
+        expect(executeFn).toHaveBeenCalledTimes(2);
+        expect(executeFn).toHaveBeenCalledWith({ a: 1 });
+        expect(executeFn).toHaveBeenCalledWith({ b: 2 });
+        // Ensure completion callbacks were called twice.
+        expect(onAllToolCallsComplete).toHaveBeenCalledTimes(2);
+    });
+    it('should auto-approve remaining tool calls when first tool call is approved with ProceedAlways', async () => {
+        let approvalMode = ApprovalMode.DEFAULT;
+        const mockConfig = createMockConfig({
+            getApprovalMode: () => approvalMode,
+            setApprovalMode: (mode) => {
+                approvalMode = mode;
+            },
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const testTool = new TestApprovalTool(mockConfig, mockMessageBus);
+        const toolRegistry = {
+            getTool: () => testTool,
+            getFunctionDeclarations: () => [],
+            getFunctionDeclarationsFiltered: () => [],
+            registerTool: () => { },
+            discoverAllTools: async () => { },
+            discoverMcpTools: async () => { },
+            discoverToolsForServer: async () => { },
+            removeMcpToolsByServer: () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+            tools: new Map(),
+            config: mockConfig,
+            mcpClientManager: undefined,
+            getToolByName: () => testTool,
+            getToolByDisplayName: () => testTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            discovery: {},
+        };
+        mockConfig.getToolRegistry = () => toolRegistry;
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const pendingConfirmations = [];
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate: (toolCalls) => {
+                onToolCallsUpdate(toolCalls);
+                // Capture confirmation handlers for awaiting_approval tools
+                toolCalls.forEach((call) => {
+                    if (call.status === 'awaiting_approval') {
+                        const waitingCall = call;
+                        const details = waitingCall.confirmationDetails;
+                        if (details?.onConfirm) {
+                            const originalHandler = pendingConfirmations.find((h) => h === details.onConfirm);
+                            if (!originalHandler) {
+                                pendingConfirmations.push(details.onConfirm);
+                            }
+                        }
+                    }
+                });
+            },
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        // Schedule multiple tools that need confirmation
+        const requests = [
+            {
+                callId: '1',
+                name: 'testApprovalTool',
+                args: { id: 'first' },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+            {
+                callId: '2',
+                name: 'testApprovalTool',
+                args: { id: 'second' },
+                isClientInitiated: false,
+                prompt_id: 'prompt-2',
+            },
+            {
+                callId: '3',
+                name: 'testApprovalTool',
+                args: { id: 'third' },
+                isClientInitiated: false,
+                prompt_id: 'prompt-3',
+            },
+        ];
+        await scheduler.schedule(requests, abortController.signal);
+        // Wait for the FIRST tool to be awaiting approval
+        await vi.waitFor(() => {
+            const calls = onToolCallsUpdate.mock.calls.at(-1)?.[0];
+            // With the sequential scheduler, the update includes the active call and the queue.
+            expect(calls?.length).toBe(3);
+            expect(calls?.[0].status).toBe('awaiting_approval');
+            expect(calls?.[0].request.callId).toBe('1');
+            // Check that the other two are in the queue (still in 'validating' state)
+            expect(calls?.[1].status).toBe('validating');
+            expect(calls?.[2].status).toBe('validating');
+        });
+        expect(pendingConfirmations.length).toBe(1);
+        // Approve the first tool with ProceedAlways
+        const firstConfirmation = pendingConfirmations[0];
+        firstConfirmation(ToolConfirmationOutcome.ProceedAlways);
+        // Wait for all tools to be completed
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        const completedCalls = onAllToolCallsComplete.mock.calls.at(-1)?.[0];
+        expect(completedCalls?.length).toBe(3);
+        expect(completedCalls?.every((call) => call.status === 'success')).toBe(true);
+        // Verify approval mode was changed
+        expect(approvalMode).toBe(ApprovalMode.AUTO_EDIT);
+    });
+});
+describe('CoreToolScheduler Sequential Execution', () => {
+    it('should execute tool calls in a batch sequentially', async () => {
+        // Arrange
+        let firstCallFinished = false;
+        const executeFn = vi
+            .fn()
+            .mockImplementation(async (args) => {
+            if (args.call === 1) {
+                // First call, wait for a bit to simulate work
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                firstCallFinished = true;
+                return { llmContent: 'First call done' };
+            }
+            if (args.call === 2) {
+                // Second call, should only happen after the first is finished
+                if (!firstCallFinished) {
+                    throw new Error('Second tool call started before the first one finished!');
+                }
+                return { llmContent: 'Second call done' };
+            }
+            return { llmContent: 'default' };
+        });
+        const mockTool = new MockTool({ name: 'mockTool', execute: executeFn });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO, // Use YOLO to avoid confirmation prompts
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const requests = [
+            {
+                callId: '1',
+                name: 'mockTool',
+                args: { call: 1 },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+            {
+                callId: '2',
+                name: 'mockTool',
+                args: { call: 2 },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+        ];
+        // Act
+        await scheduler.schedule(requests, abortController.signal);
+        // Assert
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        // Check that execute was called twice
+        expect(executeFn).toHaveBeenCalledTimes(2);
+        // Check the order of calls
+        const calls = executeFn.mock.calls;
+        expect(calls[0][0]).toEqual({ call: 1 });
+        expect(calls[1][0]).toEqual({ call: 2 });
+        // The onAllToolCallsComplete should be called once with both results
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(2);
+        expect(completedCalls[0].status).toBe('success');
+        expect(completedCalls[1].status).toBe('success');
+    });
+    it('should cancel subsequent tools when the signal is aborted.', async () => {
+        // Arrange
+        const abortController = new AbortController();
+        let secondCallStarted = false;
+        const executeFn = vi
+            .fn()
+            .mockImplementation(async (args) => {
+            if (args.call === 1) {
+                return { llmContent: 'First call done' };
+            }
+            if (args.call === 2) {
+                secondCallStarted = true;
+                // This call will be cancelled while it's "running".
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                // It should not return a value because it will be cancelled.
+                return { llmContent: 'Second call should not complete' };
+            }
+            if (args.call === 3) {
+                return { llmContent: 'Third call done' };
+            }
+            return { llmContent: 'default' };
+        });
+        const mockTool = new MockTool({ name: 'mockTool', execute: executeFn });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO,
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const requests = [
+            {
+                callId: '1',
+                name: 'mockTool',
+                args: { call: 1 },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+            {
+                callId: '2',
+                name: 'mockTool',
+                args: { call: 2 },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+            {
+                callId: '3',
+                name: 'mockTool',
+                args: { call: 3 },
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+        ];
+        // Act
+        const schedulePromise = scheduler.schedule(requests, abortController.signal);
+        // Wait for the second call to start, then abort.
+        await vi.waitFor(() => {
+            expect(secondCallStarted).toBe(true);
+        });
+        abortController.abort();
+        await schedulePromise;
+        // Assert
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        // Check that execute was called for the first two tools only
+        expect(executeFn).toHaveBeenCalledTimes(2);
+        expect(executeFn).toHaveBeenCalledWith({ call: 1 });
+        expect(executeFn).toHaveBeenCalledWith({ call: 2 });
+        const completedCalls = onAllToolCallsComplete.mock
+            .calls[0][0];
+        expect(completedCalls).toHaveLength(3);
+        const call1 = completedCalls.find((c) => c.request.callId === '1');
+        const call2 = completedCalls.find((c) => c.request.callId === '2');
+        const call3 = completedCalls.find((c) => c.request.callId === '3');
+        expect(call1?.status).toBe('success');
+        expect(call2?.status).toBe('cancelled');
+        expect(call3?.status).toBe('cancelled');
+    });
+    it('should pass confirmation diff data into modifyWithEditor overrides', async () => {
+        const modifyWithEditorSpy = vi
+            .spyOn(modifiableToolModule, 'modifyWithEditor')
+            .mockResolvedValue({
+            updatedParams: { param: 'updated' },
+            updatedDiff: 'updated diff',
+        });
+        const mockModifiableTool = new MockModifiableTool('mockModifiableTool');
+        const mockToolRegistry = {
+            getTool: () => mockModifiableTool,
+            getToolByName: () => mockModifiableTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => mockModifiableTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const onAllToolCallsComplete = vi.fn();
+        const onToolCallsUpdate = vi.fn();
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            onToolCallsUpdate,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        await scheduler.schedule([
+            {
+                callId: '1',
+                name: 'mockModifiableTool',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+        ], abortController.signal);
+        const toolCall = scheduler
+            .toolCalls[0];
+        expect(toolCall.status).toBe('awaiting_approval');
+        const confirmationSignal = new AbortController().signal;
+        await scheduler.handleConfirmationResponse(toolCall.request.callId, async () => { }, ToolConfirmationOutcome.ModifyWithEditor, confirmationSignal);
+        expect(modifyWithEditorSpy).toHaveBeenCalled();
+        const overrides = modifyWithEditorSpy.mock.calls[modifyWithEditorSpy.mock.calls.length - 1][4];
+        expect(overrides).toEqual({
+            currentContent: 'originalContent',
+            proposedContent: 'newContent',
+        });
+        modifyWithEditorSpy.mockRestore();
+    });
+    it('should pass serverName to policy engine for DiscoveredMCPTool', async () => {
+        const mockMcpTool = {
+            tool: async () => ({ functionDeclarations: [] }),
+            callTool: async () => [],
+        };
+        const serverName = 'test-server';
+        const toolName = 'test-tool';
+        const mcpTool = new DiscoveredMCPTool(mockMcpTool, serverName, toolName, 'description', { type: 'object', properties: {} }, createMockMessageBus());
+        const mockToolRegistry = {
+            getTool: () => mcpTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByName: () => mcpTool,
+            getToolByDisplayName: () => mcpTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const mockPolicyEngineCheck = vi.fn().mockResolvedValue({
+            decision: PolicyDecision.ALLOW,
+        });
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getPolicyEngine: () => ({
+                check: mockPolicyEngineCheck,
+            }),
+            isInteractive: () => false,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: toolName,
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-id-1',
+        };
+        await scheduler.schedule(request, abortController.signal);
+        expect(mockPolicyEngineCheck).toHaveBeenCalledWith(expect.objectContaining({ name: toolName }), serverName);
+    });
+    it('should not double-report completed tools when concurrent completions occur', async () => {
+        // Arrange
+        const executeFn = vi.fn().mockResolvedValue({ llmContent: 'success' });
+        const mockTool = new MockTool({ name: 'mockTool', execute: executeFn });
+        const declarativeTool = mockTool;
+        const mockToolRegistry = {
+            getTool: () => declarativeTool,
+            getToolByName: () => declarativeTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => declarativeTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        let completionCallCount = 0;
+        const onAllToolCallsComplete = vi.fn().mockImplementation(async () => {
+            completionCallCount++;
+            // Simulate slow reporting (e.g. Gemini API call)
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        });
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO,
+            isInteractive: () => false,
+        });
+        const mockMessageBus = createMockMessageBus();
+        mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+        mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+        mockConfig.getHookSystem = vi
+            .fn()
+            .mockReturnValue(new HookSystem(mockConfig));
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const request = {
+            callId: '1',
+            name: 'mockTool',
+            args: {},
+            isClientInitiated: false,
+            prompt_id: 'prompt-1',
+        };
+        // Act
+        // 1. Start execution
+        const schedulePromise = scheduler.schedule([request], abortController.signal);
+        // 2. Wait just enough for it to finish and enter checkAndNotifyCompletion
+        // (awaiting our slow mock)
+        await vi.waitFor(() => {
+            expect(completionCallCount).toBe(1);
+        });
+        // 3. Trigger a concurrent completion event (e.g. via cancelAll)
+        scheduler.cancelAll(abortController.signal);
+        await schedulePromise;
+        // Assert
+        // Even though cancelAll was called while the first completion was in progress,
+        // it should not have triggered a SECOND completion call because the first one
+        // was still 'finalizing' and will drain any new tools.
+        expect(onAllToolCallsComplete).toHaveBeenCalledTimes(1);
+    });
+    it('should complete reporting all tools even mid-callback during abort', async () => {
+        // Arrange
+        const onAllToolCallsComplete = vi.fn().mockImplementation(async () => {
+            // Simulate slow reporting
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        });
+        const mockTool = new MockTool({ name: 'mockTool' });
+        const mockToolRegistry = {
+            getTool: () => mockTool,
+            getToolByName: () => mockTool,
+            getFunctionDeclarations: () => [],
+            tools: new Map(),
+            discovery: {},
+            registerTool: () => { },
+            getToolByDisplayName: () => mockTool,
+            getTools: () => [],
+            discoverTools: async () => { },
+            getAllTools: () => [],
+            getToolsByServer: () => [],
+        };
+        const mockConfig = createMockConfig({
+            getToolRegistry: () => mockToolRegistry,
+            getApprovalMode: () => ApprovalMode.YOLO,
+            isInteractive: () => false,
+        });
+        const scheduler = new CoreToolScheduler({
+            config: mockConfig,
+            onAllToolCallsComplete,
+            getPreferredEditor: () => 'vscode',
+        });
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+        // Act
+        // 1. Start execution of two tools
+        const schedulePromise = scheduler.schedule([
+            {
+                callId: '1',
+                name: 'mockTool',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+            {
+                callId: '2',
+                name: 'mockTool',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            },
+        ], signal);
+        // 2. Wait for reporting to start
+        await vi.waitFor(() => {
+            expect(onAllToolCallsComplete).toHaveBeenCalled();
+        });
+        // 3. Abort the signal while reporting is in progress
+        abortController.abort();
+        await schedulePromise;
+        // Assert
+        // Verify that onAllToolCallsComplete was called and processed the tools,
+        // and that the scheduler didn't just drop them because of the abort.
+        expect(onAllToolCallsComplete).toHaveBeenCalled();
+        const reportedTools = onAllToolCallsComplete.mock.calls.flatMap((call) => 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        call[0].map((t) => t.request.callId));
+        // Both tools should have been reported exactly once with success status
+        expect(reportedTools).toContain('1');
+        expect(reportedTools).toContain('2');
+        const allStatuses = onAllToolCallsComplete.mock.calls.flatMap((call) => 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        call[0].map((t) => t.status));
+        expect(allStatuses).toEqual(['success', 'success']);
+        expect(onAllToolCallsComplete).toHaveBeenCalledTimes(1);
+    });
+    describe('Policy Decisions in Plan Mode', () => {
+        it('should return STOP_EXECUTION error type and informative message when denied in Plan Mode', async () => {
+            const mockTool = new MockTool({
+                name: 'dangerous_tool',
+                displayName: 'Dangerous Tool',
+                description: 'Does risky stuff',
+            });
+            const mockToolRegistry = {
+                getTool: () => mockTool,
+                getAllToolNames: () => ['dangerous_tool'],
+            };
+            const onAllToolCallsComplete = vi.fn();
+            const mockConfig = createMockConfig({
+                getToolRegistry: () => mockToolRegistry,
+                getApprovalMode: () => ApprovalMode.PLAN,
+                getPolicyEngine: () => ({
+                    check: async () => ({ decision: PolicyDecision.DENY }),
+                }),
+            });
+            const scheduler = new CoreToolScheduler({
+                config: mockConfig,
+                onAllToolCallsComplete,
+                getPreferredEditor: () => 'vscode',
+            });
+            const request = {
+                callId: 'call-1',
+                name: 'dangerous_tool',
+                args: {},
+                isClientInitiated: false,
+                prompt_id: 'prompt-1',
+            };
+            await scheduler.schedule(request, new AbortController().signal);
+            expect(onAllToolCallsComplete).toHaveBeenCalledTimes(1);
+            const reportedTools = onAllToolCallsComplete.mock.calls[0][0];
+            const result = reportedTools[0];
+            expect(result.status).toBe('error');
+            expect(result.response.errorType).toBe(ToolErrorType.STOP_EXECUTION);
+            expect(result.response.error.message).toBe(PLAN_MODE_DENIAL_MESSAGE);
+        });
+    });
+});
+//# sourceMappingURL=coreToolScheduler.test.js.map

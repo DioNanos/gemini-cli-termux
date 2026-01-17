@@ -1,0 +1,7 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { Box, Text } from 'ink';
+import { theme } from '../semantic-colors.js';
+export function Table({ data, columns }) {
+    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Box, { flexDirection: "row", children: columns.map((col, index) => (_jsx(Box, { width: col.width, flexGrow: col.flexGrow, flexShrink: col.flexShrink, flexBasis: col.flexBasis ?? (col.width ? undefined : 0), paddingRight: 1, children: typeof col.header === 'string' ? (_jsx(Text, { bold: true, color: theme.text.primary, children: col.header })) : (col.header) }, `header-${index}`))) }), _jsx(Box, { borderStyle: "single", borderBottom: true, borderTop: false, borderLeft: false, borderRight: false, borderColor: theme.border.default, marginBottom: 0 }), data.map((item, rowIndex) => (_jsx(Box, { flexDirection: "row", children: columns.map((col, colIndex) => (_jsx(Box, { width: col.width, flexGrow: col.flexGrow, flexShrink: col.flexShrink, flexBasis: col.flexBasis ?? (col.width ? undefined : 0), paddingRight: 1, children: col.renderCell ? (col.renderCell(item)) : (_jsx(Text, { color: theme.text.primary, children: String(item[col.key]) })) }, `cell-${rowIndex}-${colIndex}`))) }, `row-${rowIndex}`)))] }));
+}
+//# sourceMappingURL=Table.js.map

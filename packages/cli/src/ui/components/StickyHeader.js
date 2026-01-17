@@ -1,0 +1,5 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { Box } from 'ink';
+import { theme } from '../semantic-colors.js';
+export const StickyHeader = ({ children, width, isFirst, borderColor, borderDimColor, containerRef, }) => (_jsx(Box, { ref: containerRef, sticky: true, minHeight: 1, flexShrink: 0, width: width, stickyChildren: _jsxs(Box, { borderStyle: "round", flexDirection: "column", width: width, opaque: true, borderColor: borderColor, borderDimColor: borderDimColor, borderBottom: false, borderTop: isFirst, paddingTop: isFirst ? 0 : 1, children: [_jsx(Box, { paddingX: 1, children: children }), _jsx(Box, { width: width - 2, borderColor: theme.ui.dark, borderStyle: "single", borderTop: false, borderBottom: true, borderLeft: false, borderRight: false })] }), children: _jsx(Box, { borderStyle: "round", width: width, borderColor: borderColor, borderDimColor: borderDimColor, borderBottom: false, borderTop: isFirst, borderLeft: true, borderRight: true, paddingX: 1, paddingBottom: 1, paddingTop: isFirst ? 0 : 1, children: children }) }));
+//# sourceMappingURL=StickyHeader.js.map

@@ -1,0 +1,33 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useMemo } from 'react';
+import { escapeAnsiCtrlCodes } from '../utils/textUtils.js';
+import { UserMessage } from './messages/UserMessage.js';
+import { UserShellMessage } from './messages/UserShellMessage.js';
+import { GeminiMessage } from './messages/GeminiMessage.js';
+import { InfoMessage } from './messages/InfoMessage.js';
+import { ErrorMessage } from './messages/ErrorMessage.js';
+import { ToolGroupMessage } from './messages/ToolGroupMessage.js';
+import { GeminiMessageContent } from './messages/GeminiMessageContent.js';
+import { CompressionMessage } from './messages/CompressionMessage.js';
+import { WarningMessage } from './messages/WarningMessage.js';
+import { Box } from 'ink';
+import { AboutBox } from './AboutBox.js';
+import { StatsDisplay } from './StatsDisplay.js';
+import { ModelStatsDisplay } from './ModelStatsDisplay.js';
+import { ToolStatsDisplay } from './ToolStatsDisplay.js';
+import { SessionSummaryDisplay } from './SessionSummaryDisplay.js';
+import { Help } from './Help.js';
+import { ExtensionsList } from './views/ExtensionsList.js';
+import { getMCPServerStatus } from '@google/gemini-cli-core';
+import { ToolsList } from './views/ToolsList.js';
+import { SkillsList } from './views/SkillsList.js';
+import { AgentsStatus } from './views/AgentsStatus.js';
+import { McpStatus } from './views/McpStatus.js';
+import { ChatList } from './views/ChatList.js';
+import { HooksList } from './views/HooksList.js';
+import { ModelMessage } from './messages/ModelMessage.js';
+export const HistoryItemDisplay = ({ item, availableTerminalHeight, terminalWidth, isPending, commands, isFocused = true, activeShellPtyId, embeddedShellFocused, availableTerminalHeightGemini, }) => {
+    const itemForDisplay = useMemo(() => escapeAnsiCtrlCodes(item), [item]);
+    return (_jsxs(Box, { flexDirection: "column", width: terminalWidth, children: [itemForDisplay.type === 'user' && (_jsx(UserMessage, { text: itemForDisplay.text, width: terminalWidth })), itemForDisplay.type === 'user_shell' && (_jsx(UserShellMessage, { text: itemForDisplay.text })), itemForDisplay.type === 'gemini' && (_jsx(GeminiMessage, { text: itemForDisplay.text, isPending: isPending, availableTerminalHeight: availableTerminalHeightGemini ?? availableTerminalHeight, terminalWidth: terminalWidth })), itemForDisplay.type === 'gemini_content' && (_jsx(GeminiMessageContent, { text: itemForDisplay.text, isPending: isPending, availableTerminalHeight: availableTerminalHeightGemini ?? availableTerminalHeight, terminalWidth: terminalWidth })), itemForDisplay.type === 'info' && (_jsx(InfoMessage, { text: itemForDisplay.text, icon: itemForDisplay.icon, color: itemForDisplay.color })), itemForDisplay.type === 'warning' && (_jsx(WarningMessage, { text: itemForDisplay.text })), itemForDisplay.type === 'error' && (_jsx(ErrorMessage, { text: itemForDisplay.text })), itemForDisplay.type === 'about' && (_jsx(AboutBox, { cliVersion: itemForDisplay.cliVersion, osVersion: itemForDisplay.osVersion, sandboxEnv: itemForDisplay.sandboxEnv, modelVersion: itemForDisplay.modelVersion, selectedAuthType: itemForDisplay.selectedAuthType, gcpProject: itemForDisplay.gcpProject, ideClient: itemForDisplay.ideClient, userEmail: itemForDisplay.userEmail })), itemForDisplay.type === 'help' && commands && (_jsx(Help, { commands: commands })), itemForDisplay.type === 'stats' && (_jsx(StatsDisplay, { duration: itemForDisplay.duration, quotas: itemForDisplay.quotas })), itemForDisplay.type === 'model_stats' && _jsx(ModelStatsDisplay, {}), itemForDisplay.type === 'tool_stats' && _jsx(ToolStatsDisplay, {}), itemForDisplay.type === 'model' && (_jsx(ModelMessage, { model: itemForDisplay.model })), itemForDisplay.type === 'quit' && (_jsx(SessionSummaryDisplay, { duration: itemForDisplay.duration })), itemForDisplay.type === 'tool_group' && (_jsx(ToolGroupMessage, { toolCalls: itemForDisplay.tools, groupId: itemForDisplay.id, availableTerminalHeight: availableTerminalHeight, terminalWidth: terminalWidth, isFocused: isFocused, activeShellPtyId: activeShellPtyId, embeddedShellFocused: embeddedShellFocused })), itemForDisplay.type === 'compression' && (_jsx(CompressionMessage, { compression: itemForDisplay.compression })), itemForDisplay.type === 'extensions_list' && (_jsx(ExtensionsList, { extensions: itemForDisplay.extensions })), itemForDisplay.type === 'tools_list' && (_jsx(ToolsList, { terminalWidth: terminalWidth, tools: itemForDisplay.tools, showDescriptions: itemForDisplay.showDescriptions })), itemForDisplay.type === 'skills_list' && (_jsx(SkillsList, { skills: itemForDisplay.skills, showDescriptions: itemForDisplay.showDescriptions })), itemForDisplay.type === 'agents_list' && (_jsx(AgentsStatus, { agents: itemForDisplay.agents, terminalWidth: terminalWidth })), itemForDisplay.type === 'mcp_status' && (_jsx(McpStatus, { ...itemForDisplay, serverStatus: getMCPServerStatus })), itemForDisplay.type === 'chat_list' && (_jsx(ChatList, { chats: itemForDisplay.chats })), itemForDisplay.type === 'hooks_list' && (_jsx(HooksList, { hooks: itemForDisplay.hooks }))] }, itemForDisplay.id));
+};
+//# sourceMappingURL=HistoryItemDisplay.js.map

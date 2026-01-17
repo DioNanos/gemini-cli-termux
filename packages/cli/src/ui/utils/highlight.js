@@ -1,0 +1,109 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { LRUCache } from 'mnemonist';
+import { cpLen, cpSlice } from './textUtils.js';
+import { LRU_BUFFER_PERF_CACHE_LIMIT } from '../constants.js';
+// Matches slash commands (e.g., /help) and @ references (files or MCP resource URIs).
+// The @ pattern uses a negated character class to support URIs like `@file:///example.txt`
+// which contain colons. It matches any character except delimiters: comma, whitespace,
+// semicolon, common punctuation, and brackets.
+const HIGHLIGHT_REGEX = /(^\/[a-zA-Z0-9_-]+|@(?:\\ |[^,\s;!?()[\]{}])+)/g;
+const highlightCache = new LRUCache(LRU_BUFFER_PERF_CACHE_LIMIT);
+export function parseInputForHighlighting(text, index, transformations = [], cursorCol) {
+    let isCursorInsideTransform = false;
+    if (cursorCol !== undefined) {
+        for (const transform of transformations) {
+            if (cursorCol >= transform.logStart && cursorCol <= transform.logEnd) {
+                isCursorInsideTransform = true;
+                break;
+            }
+        }
+    }
+    const cacheKey = `${index === 0 ? 'F' : 'N'}:${isCursorInsideTransform ? cursorCol : 'NC'}:${text}`;
+    const cached = highlightCache.get(cacheKey);
+    if (cached !== undefined)
+        return cached;
+    HIGHLIGHT_REGEX.lastIndex = 0;
+    if (!text) {
+        return [{ text: '', type: 'default' }];
+    }
+    const parseUntransformedInput = (text) => {
+        const tokens = [];
+        if (!text)
+            return tokens;
+        HIGHLIGHT_REGEX.lastIndex = 0;
+        let last = 0;
+        let match;
+        while ((match = HIGHLIGHT_REGEX.exec(text)) !== null) {
+            const [fullMatch] = match;
+            const matchIndex = match.index;
+            if (matchIndex > last) {
+                tokens.push({ text: text.slice(last, matchIndex), type: 'default' });
+            }
+            const type = fullMatch.startsWith('/') ? 'command' : 'file';
+            if (type === 'command' && index !== 0) {
+                tokens.push({ text: fullMatch, type: 'default' });
+            }
+            else {
+                tokens.push({ text: fullMatch, type });
+            }
+            last = matchIndex + fullMatch.length;
+        }
+        if (last < text.length) {
+            tokens.push({ text: text.slice(last), type: 'default' });
+        }
+        return tokens;
+    };
+    const tokens = [];
+    let column = 0;
+    const sortedTransformations = (transformations ?? [])
+        .slice()
+        .sort((a, b) => a.logStart - b.logStart);
+    for (const transformation of sortedTransformations) {
+        const textBeforeTransformation = cpSlice(text, column, transformation.logStart);
+        tokens.push(...parseUntransformedInput(textBeforeTransformation));
+        const isCursorInside = cursorCol !== undefined &&
+            cursorCol >= transformation.logStart &&
+            cursorCol <= transformation.logEnd;
+        const transformationText = isCursorInside
+            ? transformation.logicalText
+            : transformation.collapsedText;
+        tokens.push({ text: transformationText, type: 'file' });
+        column = transformation.logEnd;
+    }
+    const textAfterFinalTransformation = cpSlice(text, column);
+    tokens.push(...parseUntransformedInput(textAfterFinalTransformation));
+    highlightCache.set(cacheKey, tokens);
+    return tokens;
+}
+export function parseSegmentsFromTokens(tokens, sliceStart, sliceEnd) {
+    if (sliceStart >= sliceEnd)
+        return [];
+    const segments = [];
+    let tokenCpStart = 0;
+    for (const token of tokens) {
+        const tokenLen = cpLen(token.text);
+        const tokenStart = tokenCpStart;
+        const tokenEnd = tokenStart + tokenLen;
+        const overlapStart = Math.max(tokenStart, sliceStart);
+        const overlapEnd = Math.min(tokenEnd, sliceEnd);
+        if (overlapStart < overlapEnd) {
+            const sliceStartInToken = overlapStart - tokenStart;
+            const sliceEndInToken = overlapEnd - tokenStart;
+            const rawSlice = cpSlice(token.text, sliceStartInToken, sliceEndInToken);
+            const last = segments[segments.length - 1];
+            if (last && last.type === token.type) {
+                last.text += rawSlice;
+            }
+            else {
+                segments.push({ type: token.type, text: rawSlice });
+            }
+        }
+        tokenCpStart += tokenLen;
+    }
+    return segments;
+}
+//# sourceMappingURL=highlight.js.map

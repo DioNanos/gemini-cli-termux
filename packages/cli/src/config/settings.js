@@ -1,0 +1,596 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { platform } from 'node:os';
+import * as dotenv from 'dotenv';
+import process from 'node:process';
+import { FatalConfigError, GEMINI_DIR, getErrorMessage, Storage, coreEvents, homedir, } from '@google/gemini-cli-core';
+import stripJsonComments from 'strip-json-comments';
+import { DefaultLight } from '../ui/themes/default-light.js';
+import { DefaultDark } from '../ui/themes/default.js';
+import { isWorkspaceTrusted } from './trustedFolders.js';
+import { getSettingsSchema, } from './settingsSchema.js';
+export { getSettingsSchema, };
+import { resolveEnvVarsInObject } from '../utils/envVarResolver.js';
+import { customDeepMerge } from '../utils/deepMerge.js';
+import { updateSettingsFilePreservingFormat } from '../utils/commentJson.js';
+import { validateSettings, formatValidationError, } from './settings-validation.js';
+function getMergeStrategyForPath(path) {
+    let current = undefined;
+    let currentSchema = getSettingsSchema();
+    let parent = undefined;
+    for (const key of path) {
+        if (!currentSchema || !currentSchema[key]) {
+            // Key not found in schema - check if parent has additionalProperties
+            if (parent?.additionalProperties?.mergeStrategy) {
+                return parent.additionalProperties.mergeStrategy;
+            }
+            return undefined;
+        }
+        parent = current;
+        current = currentSchema[key];
+        currentSchema = current.properties;
+    }
+    return current?.mergeStrategy;
+}
+export const USER_SETTINGS_PATH = Storage.getGlobalSettingsPath();
+export const USER_SETTINGS_DIR = path.dirname(USER_SETTINGS_PATH);
+export const DEFAULT_EXCLUDED_ENV_VARS = ['DEBUG', 'DEBUG_MODE'];
+export function getSystemSettingsPath() {
+    if (process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH']) {
+        return process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH'];
+    }
+    if (platform() === 'darwin') {
+        return '/Library/Application Support/GeminiCli/settings.json';
+    }
+    else if (platform() === 'win32') {
+        return 'C:\\ProgramData\\gemini-cli\\settings.json';
+    }
+    else {
+        return '/etc/gemini-cli/settings.json';
+    }
+}
+export function getSystemDefaultsPath() {
+    if (process.env['GEMINI_CLI_SYSTEM_DEFAULTS_PATH']) {
+        return process.env['GEMINI_CLI_SYSTEM_DEFAULTS_PATH'];
+    }
+    return path.join(path.dirname(getSystemSettingsPath()), 'system-defaults.json');
+}
+export var SettingScope;
+(function (SettingScope) {
+    SettingScope["User"] = "User";
+    SettingScope["Workspace"] = "Workspace";
+    SettingScope["System"] = "System";
+    SettingScope["SystemDefaults"] = "SystemDefaults";
+    // Note that this scope is not supported in the settings dialog at this time,
+    // it is only supported for extensions.
+    SettingScope["Session"] = "Session";
+})(SettingScope || (SettingScope = {}));
+/**
+ * The actual values of the loadable settings scopes.
+ */
+const _loadableSettingScopes = [
+    SettingScope.User,
+    SettingScope.Workspace,
+    SettingScope.System,
+    SettingScope.SystemDefaults,
+];
+/**
+ * A type guard function that checks if `scope` is a loadable settings scope,
+ * and allows promotion to the `LoadableSettingsScope` type based on the result.
+ */
+export function isLoadableSettingScope(scope) {
+    return _loadableSettingScopes.includes(scope);
+}
+function setNestedProperty(obj, path, value) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    if (!lastKey)
+        return;
+    let current = obj;
+    for (const key of keys) {
+        if (current[key] === undefined) {
+            current[key] = {};
+        }
+        const next = current[key];
+        if (typeof next === 'object' && next !== null) {
+            current = next;
+        }
+        else {
+            // This path is invalid, so we stop.
+            return;
+        }
+    }
+    current[lastKey] = value;
+}
+export function getDefaultsFromSchema(schema = getSettingsSchema()) {
+    const defaults = {};
+    for (const key in schema) {
+        const definition = schema[key];
+        if (definition.properties) {
+            defaults[key] = getDefaultsFromSchema(definition.properties);
+        }
+        else if (definition.default !== undefined) {
+            defaults[key] = definition.default;
+        }
+    }
+    return defaults;
+}
+export function mergeSettings(system, systemDefaults, user, workspace, isTrusted) {
+    const safeWorkspace = isTrusted ? workspace : {};
+    const schemaDefaults = getDefaultsFromSchema();
+    // Settings are merged with the following precedence (last one wins for
+    // single values):
+    // 1. Schema Defaults (Built-in)
+    // 2. System Defaults
+    // 3. User Settings
+    // 4. Workspace Settings
+    // 5. System Settings (as overrides)
+    return customDeepMerge(getMergeStrategyForPath, schemaDefaults, systemDefaults, user, safeWorkspace, system);
+}
+/**
+ * Creates a fully populated MergedSettings object for testing purposes.
+ * It merges the provided overrides with the default settings from the schema.
+ *
+ * @param overrides Partial settings to override the defaults.
+ * @returns A complete MergedSettings object.
+ */
+export function createTestMergedSettings(overrides = {}) {
+    return customDeepMerge(getMergeStrategyForPath, getDefaultsFromSchema(), overrides);
+}
+export class LoadedSettings {
+    constructor(system, systemDefaults, user, workspace, isTrusted, errors = []) {
+        this.system = system;
+        this.systemDefaults = systemDefaults;
+        this.user = user;
+        this.workspace = workspace;
+        this.isTrusted = isTrusted;
+        this.errors = errors;
+        this._merged = this.computeMergedSettings();
+    }
+    system;
+    systemDefaults;
+    user;
+    workspace;
+    isTrusted;
+    errors;
+    _merged;
+    _remoteAdminSettings;
+    get merged() {
+        return this._merged;
+    }
+    computeMergedSettings() {
+        const merged = mergeSettings(this.system.settings, this.systemDefaults.settings, this.user.settings, this.workspace.settings, this.isTrusted);
+        // Remote admin settings always take precedence and file-based admin settings
+        // are ignored.
+        const adminSettingSchema = getSettingsSchema().admin;
+        if (adminSettingSchema?.properties) {
+            const adminSchema = adminSettingSchema.properties;
+            const adminDefaults = getDefaultsFromSchema(adminSchema);
+            // The final admin settings are the defaults overridden by remote settings.
+            // Any admin settings from files are ignored.
+            merged.admin = customDeepMerge((path) => getMergeStrategyForPath(['admin', ...path]), adminDefaults, this._remoteAdminSettings?.admin ?? {});
+        }
+        return merged;
+    }
+    forScope(scope) {
+        switch (scope) {
+            case SettingScope.User:
+                return this.user;
+            case SettingScope.Workspace:
+                return this.workspace;
+            case SettingScope.System:
+                return this.system;
+            case SettingScope.SystemDefaults:
+                return this.systemDefaults;
+            default:
+                throw new Error(`Invalid scope: ${scope}`);
+        }
+    }
+    setValue(scope, key, value) {
+        const settingsFile = this.forScope(scope);
+        setNestedProperty(settingsFile.settings, key, value);
+        setNestedProperty(settingsFile.originalSettings, key, value);
+        this._merged = this.computeMergedSettings();
+        saveSettings(settingsFile);
+        coreEvents.emitSettingsChanged();
+    }
+    setRemoteAdminSettings(remoteSettings) {
+        const admin = {};
+        const { secureModeEnabled, mcpSetting, cliFeatureSetting } = remoteSettings;
+        if (secureModeEnabled !== undefined) {
+            admin.secureModeEnabled = secureModeEnabled;
+        }
+        if (mcpSetting?.mcpEnabled !== undefined) {
+            admin.mcp = { enabled: mcpSetting.mcpEnabled };
+        }
+        const extensionsSetting = cliFeatureSetting?.extensionsSetting;
+        if (extensionsSetting?.extensionsEnabled !== undefined) {
+            admin.extensions = { enabled: extensionsSetting.extensionsEnabled };
+        }
+        this._remoteAdminSettings = { admin };
+        this._merged = this.computeMergedSettings();
+    }
+}
+function findEnvFile(startDir) {
+    let currentDir = path.resolve(startDir);
+    while (true) {
+        // prefer gemini-specific .env under GEMINI_DIR
+        const geminiEnvPath = path.join(currentDir, GEMINI_DIR, '.env');
+        if (fs.existsSync(geminiEnvPath)) {
+            return geminiEnvPath;
+        }
+        const envPath = path.join(currentDir, '.env');
+        if (fs.existsSync(envPath)) {
+            return envPath;
+        }
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir || !parentDir) {
+            // check .env under home as fallback, again preferring gemini-specific .env
+            const homeGeminiEnvPath = path.join(homedir(), GEMINI_DIR, '.env');
+            if (fs.existsSync(homeGeminiEnvPath)) {
+                return homeGeminiEnvPath;
+            }
+            const homeEnvPath = path.join(homedir(), '.env');
+            if (fs.existsSync(homeEnvPath)) {
+                return homeEnvPath;
+            }
+            return null;
+        }
+        currentDir = parentDir;
+    }
+}
+export function setUpCloudShellEnvironment(envFilePath) {
+    // Special handling for GOOGLE_CLOUD_PROJECT in Cloud Shell:
+    // Because GOOGLE_CLOUD_PROJECT in Cloud Shell tracks the project
+    // set by the user using "gcloud config set project" we do not want to
+    // use its value. So, unless the user overrides GOOGLE_CLOUD_PROJECT in
+    // one of the .env files, we set the Cloud Shell-specific default here.
+    if (envFilePath && fs.existsSync(envFilePath)) {
+        const envFileContent = fs.readFileSync(envFilePath);
+        const parsedEnv = dotenv.parse(envFileContent);
+        if (parsedEnv['GOOGLE_CLOUD_PROJECT']) {
+            // .env file takes precedence in Cloud Shell
+            process.env['GOOGLE_CLOUD_PROJECT'] = parsedEnv['GOOGLE_CLOUD_PROJECT'];
+        }
+        else {
+            // If not in .env, set to default and override global
+            process.env['GOOGLE_CLOUD_PROJECT'] = 'cloudshell-gca';
+        }
+    }
+    else {
+        // If no .env file, set to default and override global
+        process.env['GOOGLE_CLOUD_PROJECT'] = 'cloudshell-gca';
+    }
+}
+export function loadEnvironment(settings) {
+    const envFilePath = findEnvFile(process.cwd());
+    if (!isWorkspaceTrusted(settings).isTrusted) {
+        return;
+    }
+    // Cloud Shell environment variable handling
+    if (process.env['CLOUD_SHELL'] === 'true') {
+        setUpCloudShellEnvironment(envFilePath);
+    }
+    if (envFilePath) {
+        // Manually parse and load environment variables to handle exclusions correctly.
+        // This avoids modifying environment variables that were already set from the shell.
+        try {
+            const envFileContent = fs.readFileSync(envFilePath, 'utf-8');
+            const parsedEnv = dotenv.parse(envFileContent);
+            const excludedVars = settings?.advanced?.excludedEnvVars || DEFAULT_EXCLUDED_ENV_VARS;
+            const isProjectEnvFile = !envFilePath.includes(GEMINI_DIR);
+            for (const key in parsedEnv) {
+                if (Object.hasOwn(parsedEnv, key)) {
+                    // If it's a project .env file, skip loading excluded variables.
+                    if (isProjectEnvFile && excludedVars.includes(key)) {
+                        continue;
+                    }
+                    // Load variable only if it's not already set in the environment.
+                    if (!Object.hasOwn(process.env, key)) {
+                        process.env[key] = parsedEnv[key];
+                    }
+                }
+            }
+        }
+        catch (_e) {
+            // Errors are ignored to match the behavior of `dotenv.config({ quiet: true })`.
+        }
+    }
+}
+/**
+ * Loads settings from user and workspace directories.
+ * Project settings override user settings.
+ */
+export function loadSettings(workspaceDir = process.cwd()) {
+    let systemSettings = {};
+    let systemDefaultSettings = {};
+    let userSettings = {};
+    let workspaceSettings = {};
+    const settingsErrors = [];
+    const systemSettingsPath = getSystemSettingsPath();
+    const systemDefaultsPath = getSystemDefaultsPath();
+    // Resolve paths to their canonical representation to handle symlinks
+    const resolvedWorkspaceDir = path.resolve(workspaceDir);
+    const resolvedHomeDir = path.resolve(homedir());
+    let realWorkspaceDir = resolvedWorkspaceDir;
+    try {
+        // fs.realpathSync gets the "true" path, resolving any symlinks
+        realWorkspaceDir = fs.realpathSync(resolvedWorkspaceDir);
+    }
+    catch (_e) {
+        // This is okay. The path might not exist yet, and that's a valid state.
+    }
+    // We expect homedir to always exist and be resolvable.
+    const realHomeDir = fs.realpathSync(resolvedHomeDir);
+    const workspaceSettingsPath = new Storage(workspaceDir).getWorkspaceSettingsPath();
+    const load = (filePath) => {
+        try {
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                const rawSettings = JSON.parse(stripJsonComments(content));
+                if (typeof rawSettings !== 'object' ||
+                    rawSettings === null ||
+                    Array.isArray(rawSettings)) {
+                    settingsErrors.push({
+                        message: 'Settings file is not a valid JSON object.',
+                        path: filePath,
+                        severity: 'error',
+                    });
+                    return { settings: {} };
+                }
+                const settingsObject = rawSettings;
+                // Validate settings structure with Zod
+                const validationResult = validateSettings(settingsObject);
+                if (!validationResult.success && validationResult.error) {
+                    const errorMessage = formatValidationError(validationResult.error, filePath);
+                    settingsErrors.push({
+                        message: errorMessage,
+                        path: filePath,
+                        severity: 'warning',
+                    });
+                }
+                return { settings: settingsObject, rawJson: content };
+            }
+        }
+        catch (error) {
+            settingsErrors.push({
+                message: getErrorMessage(error),
+                path: filePath,
+                severity: 'error',
+            });
+        }
+        return { settings: {} };
+    };
+    const systemResult = load(systemSettingsPath);
+    const systemDefaultsResult = load(systemDefaultsPath);
+    const userResult = load(USER_SETTINGS_PATH);
+    let workspaceResult = {
+        settings: {},
+        rawJson: undefined,
+    };
+    if (realWorkspaceDir !== realHomeDir) {
+        workspaceResult = load(workspaceSettingsPath);
+    }
+    const systemOriginalSettings = structuredClone(systemResult.settings);
+    const systemDefaultsOriginalSettings = structuredClone(systemDefaultsResult.settings);
+    const userOriginalSettings = structuredClone(userResult.settings);
+    const workspaceOriginalSettings = structuredClone(workspaceResult.settings);
+    // Environment variables for runtime use
+    systemSettings = resolveEnvVarsInObject(systemResult.settings);
+    systemDefaultSettings = resolveEnvVarsInObject(systemDefaultsResult.settings);
+    userSettings = resolveEnvVarsInObject(userResult.settings);
+    workspaceSettings = resolveEnvVarsInObject(workspaceResult.settings);
+    // Support legacy theme names
+    if (userSettings.ui?.theme === 'VS') {
+        userSettings.ui.theme = DefaultLight.name;
+    }
+    else if (userSettings.ui?.theme === 'VS2015') {
+        userSettings.ui.theme = DefaultDark.name;
+    }
+    if (workspaceSettings.ui?.theme === 'VS') {
+        workspaceSettings.ui.theme = DefaultLight.name;
+    }
+    else if (workspaceSettings.ui?.theme === 'VS2015') {
+        workspaceSettings.ui.theme = DefaultDark.name;
+    }
+    // For the initial trust check, we can only use user and system settings.
+    const initialTrustCheckSettings = customDeepMerge(getMergeStrategyForPath, {}, systemSettings, userSettings);
+    const isTrusted = isWorkspaceTrusted(initialTrustCheckSettings).isTrusted ?? true;
+    // Create a temporary merged settings object to pass to loadEnvironment.
+    const tempMergedSettings = mergeSettings(systemSettings, systemDefaultSettings, userSettings, workspaceSettings, isTrusted);
+    // loadEnvironment depends on settings so we have to create a temp version of
+    // the settings to avoid a cycle
+    loadEnvironment(tempMergedSettings);
+    // Check for any fatal errors before proceeding
+    const fatalErrors = settingsErrors.filter((e) => e.severity === 'error');
+    if (fatalErrors.length > 0) {
+        const errorMessages = fatalErrors.map((error) => `Error in ${error.path}: ${error.message}`);
+        throw new FatalConfigError(`${errorMessages.join('\n')}\nPlease fix the configuration file(s) and try again.`);
+    }
+    const loadedSettings = new LoadedSettings({
+        path: systemSettingsPath,
+        settings: systemSettings,
+        originalSettings: systemOriginalSettings,
+        rawJson: systemResult.rawJson,
+    }, {
+        path: systemDefaultsPath,
+        settings: systemDefaultSettings,
+        originalSettings: systemDefaultsOriginalSettings,
+        rawJson: systemDefaultsResult.rawJson,
+    }, {
+        path: USER_SETTINGS_PATH,
+        settings: userSettings,
+        originalSettings: userOriginalSettings,
+        rawJson: userResult.rawJson,
+    }, {
+        path: workspaceSettingsPath,
+        settings: workspaceSettings,
+        originalSettings: workspaceOriginalSettings,
+        rawJson: workspaceResult.rawJson,
+    }, isTrusted, settingsErrors);
+    // Automatically migrate deprecated settings when loading.
+    migrateDeprecatedSettings(loadedSettings);
+    return loadedSettings;
+}
+/**
+ * Migrates deprecated settings to their new counterparts.
+ *
+ * TODO: After a couple of weeks (around early Feb 2026), we should start removing
+ * the deprecated settings from the settings files by default.
+ *
+ * @returns true if any changes were made and need to be saved.
+ */
+export function migrateDeprecatedSettings(loadedSettings, removeDeprecated = false) {
+    let anyModified = false;
+    const processScope = (scope) => {
+        const settings = loadedSettings.forScope(scope).settings;
+        // Migrate inverted boolean settings (disableX -> enableX)
+        // These settings were renamed and their boolean logic inverted
+        const generalSettings = settings.general;
+        const uiSettings = settings.ui;
+        const contextSettings = settings.context;
+        // Migrate general settings (disableAutoUpdate, disableUpdateNag)
+        if (generalSettings) {
+            const newGeneral = { ...generalSettings };
+            let modified = false;
+            if (typeof newGeneral['disableAutoUpdate'] === 'boolean') {
+                if (typeof newGeneral['enableAutoUpdate'] === 'boolean') {
+                    // Both exist, trust the new one
+                    if (removeDeprecated) {
+                        delete newGeneral['disableAutoUpdate'];
+                        modified = true;
+                    }
+                }
+                else {
+                    const oldValue = newGeneral['disableAutoUpdate'];
+                    newGeneral['enableAutoUpdate'] = !oldValue;
+                    if (removeDeprecated) {
+                        delete newGeneral['disableAutoUpdate'];
+                    }
+                    modified = true;
+                }
+            }
+            if (typeof newGeneral['disableUpdateNag'] === 'boolean') {
+                if (typeof newGeneral['enableAutoUpdateNotification'] === 'boolean') {
+                    // Both exist, trust the new one
+                    if (removeDeprecated) {
+                        delete newGeneral['disableUpdateNag'];
+                        modified = true;
+                    }
+                }
+                else {
+                    const oldValue = newGeneral['disableUpdateNag'];
+                    newGeneral['enableAutoUpdateNotification'] = !oldValue;
+                    if (removeDeprecated) {
+                        delete newGeneral['disableUpdateNag'];
+                    }
+                    modified = true;
+                }
+            }
+            if (modified) {
+                loadedSettings.setValue(scope, 'general', newGeneral);
+                anyModified = true;
+            }
+        }
+        // Migrate ui settings
+        if (uiSettings) {
+            const newUi = { ...uiSettings };
+            let modified = false;
+            // Migrate ui.accessibility.disableLoadingPhrases -> ui.accessibility.enableLoadingPhrases
+            const accessibilitySettings = newUi['accessibility'];
+            if (accessibilitySettings &&
+                typeof accessibilitySettings['disableLoadingPhrases'] === 'boolean') {
+                const newAccessibility = {
+                    ...accessibilitySettings,
+                };
+                if (typeof accessibilitySettings['enableLoadingPhrases'] === 'boolean') {
+                    // Both exist, trust the new one
+                    if (removeDeprecated) {
+                        delete newAccessibility['disableLoadingPhrases'];
+                        newUi['accessibility'] = newAccessibility;
+                        modified = true;
+                    }
+                }
+                else {
+                    const oldValue = accessibilitySettings['disableLoadingPhrases'];
+                    newAccessibility['enableLoadingPhrases'] = !oldValue;
+                    if (removeDeprecated) {
+                        delete newAccessibility['disableLoadingPhrases'];
+                    }
+                    newUi['accessibility'] = newAccessibility;
+                    modified = true;
+                }
+            }
+            if (modified) {
+                loadedSettings.setValue(scope, 'ui', newUi);
+                anyModified = true;
+            }
+        }
+        // Migrate context settings
+        if (contextSettings) {
+            const newContext = { ...contextSettings };
+            let modified = false;
+            // Migrate context.fileFiltering.disableFuzzySearch -> context.fileFiltering.enableFuzzySearch
+            const fileFilteringSettings = newContext['fileFiltering'];
+            if (fileFilteringSettings &&
+                typeof fileFilteringSettings['disableFuzzySearch'] === 'boolean') {
+                const newFileFiltering = {
+                    ...fileFilteringSettings,
+                };
+                if (typeof fileFilteringSettings['enableFuzzySearch'] === 'boolean') {
+                    // Both exist, trust the new one
+                    if (removeDeprecated) {
+                        delete newFileFiltering['disableFuzzySearch'];
+                        newContext['fileFiltering'] = newFileFiltering;
+                        modified = true;
+                    }
+                }
+                else {
+                    const oldValue = fileFilteringSettings['disableFuzzySearch'];
+                    newFileFiltering['enableFuzzySearch'] = !oldValue;
+                    if (removeDeprecated) {
+                        delete newFileFiltering['disableFuzzySearch'];
+                    }
+                    newContext['fileFiltering'] = newFileFiltering;
+                    modified = true;
+                }
+            }
+            if (modified) {
+                loadedSettings.setValue(scope, 'context', newContext);
+                anyModified = true;
+            }
+        }
+    };
+    processScope(SettingScope.User);
+    processScope(SettingScope.Workspace);
+    return anyModified;
+}
+export function saveSettings(settingsFile) {
+    try {
+        // Ensure the directory exists
+        const dirPath = path.dirname(settingsFile.path);
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+        const settingsToSave = settingsFile.originalSettings;
+        // Use the format-preserving update function
+        updateSettingsFilePreservingFormat(settingsFile.path, settingsToSave);
+    }
+    catch (error) {
+        coreEvents.emitFeedback('error', 'There was an error saving your latest settings changes.', error);
+    }
+}
+export function saveModelChange(loadedSettings, model) {
+    try {
+        loadedSettings.setValue(SettingScope.User, 'model.name', model);
+    }
+    catch (error) {
+        coreEvents.emitFeedback('error', 'There was an error saving your preferred model.', error);
+    }
+}
+//# sourceMappingURL=settings.js.map

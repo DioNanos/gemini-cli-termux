@@ -1,0 +1,1 @@
+{"version":3,"file":"init.js","sourceRoot":"","sources":["init.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAIH,MAAM,UAAU,WAAW,CAAC,iBAA0B;IACpD,IAAI,iBAAiB,EAAE,CAAC;QACtB,OAAO;YACL,IAAI,EAAE,SAAS;YACf,WAAW,EAAE,MAAM;YACnB,OAAO,EACL,0EAA0E;SAC7E,CAAC;IACJ,CAAC;IAED,OAAO;QACL,IAAI,EAAE,eAAe;QACrB,OAAO,EAAE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;CAkCZ;KACE,CAAC;AACJ,CAAC"}

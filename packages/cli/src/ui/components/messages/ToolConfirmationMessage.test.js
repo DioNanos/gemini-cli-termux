@@ -1,0 +1,167 @@
+import { jsx as _jsx } from "react/jsx-runtime";
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { describe, it, expect, vi } from 'vitest';
+import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
+import { renderWithProviders, createMockSettings, } from '../../../test-utils/render.js';
+describe('ToolConfirmationMessage', () => {
+    const mockConfig = {
+        isTrustedFolder: () => true,
+        getIdeMode: () => false,
+    };
+    it('should not display urls if prompt and url are the same', () => {
+        const confirmationDetails = {
+            type: 'info',
+            title: 'Confirm Web Fetch',
+            prompt: 'https://example.com',
+            urls: ['https://example.com'],
+            onConfirm: vi.fn(),
+        };
+        const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: confirmationDetails, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }));
+        expect(lastFrame()).toMatchSnapshot();
+    });
+    it('should display urls if prompt and url are different', () => {
+        const confirmationDetails = {
+            type: 'info',
+            title: 'Confirm Web Fetch',
+            prompt: 'fetch https://github.com/google/gemini-react/blob/main/README.md',
+            urls: [
+                'https://raw.githubusercontent.com/google/gemini-react/main/README.md',
+            ],
+            onConfirm: vi.fn(),
+        };
+        const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: confirmationDetails, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }));
+        expect(lastFrame()).toMatchSnapshot();
+    });
+    it('should display multiple commands for exec type when provided', () => {
+        const confirmationDetails = {
+            type: 'exec',
+            title: 'Confirm Multiple Commands',
+            command: 'echo "hello"', // Primary command
+            rootCommand: 'echo',
+            rootCommands: ['echo'],
+            commands: ['echo "hello"', 'ls -la', 'whoami'], // Multi-command list
+            onConfirm: vi.fn(),
+        };
+        const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: confirmationDetails, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }));
+        const output = lastFrame();
+        expect(output).toContain('echo "hello"');
+        expect(output).toContain('ls -la');
+        expect(output).toContain('whoami');
+        expect(output).toMatchSnapshot();
+    });
+    describe('with folder trust', () => {
+        const editConfirmationDetails = {
+            type: 'edit',
+            title: 'Confirm Edit',
+            fileName: 'test.txt',
+            filePath: '/test.txt',
+            fileDiff: '...diff...',
+            originalContent: 'a',
+            newContent: 'b',
+            onConfirm: vi.fn(),
+        };
+        const execConfirmationDetails = {
+            type: 'exec',
+            title: 'Confirm Execution',
+            command: 'echo "hello"',
+            rootCommand: 'echo',
+            rootCommands: ['echo'],
+            onConfirm: vi.fn(),
+        };
+        const infoConfirmationDetails = {
+            type: 'info',
+            title: 'Confirm Web Fetch',
+            prompt: 'https://example.com',
+            urls: ['https://example.com'],
+            onConfirm: vi.fn(),
+        };
+        const mcpConfirmationDetails = {
+            type: 'mcp',
+            title: 'Confirm MCP Tool',
+            serverName: 'test-server',
+            toolName: 'test-tool',
+            toolDisplayName: 'Test Tool',
+            onConfirm: vi.fn(),
+        };
+        describe.each([
+            {
+                description: 'for edit confirmations',
+                details: editConfirmationDetails,
+                alwaysAllowText: 'Allow for this session',
+            },
+            {
+                description: 'for exec confirmations',
+                details: execConfirmationDetails,
+                alwaysAllowText: 'Allow for this session',
+            },
+            {
+                description: 'for info confirmations',
+                details: infoConfirmationDetails,
+                alwaysAllowText: 'Allow for this session',
+            },
+            {
+                description: 'for mcp confirmations',
+                details: mcpConfirmationDetails,
+                alwaysAllowText: 'always allow',
+            },
+        ])('$description', ({ details }) => {
+            it('should show "allow always" when folder is trusted', () => {
+                const mockConfig = {
+                    isTrustedFolder: () => true,
+                    getIdeMode: () => false,
+                };
+                const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: details, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }));
+                expect(lastFrame()).toMatchSnapshot();
+            });
+            it('should NOT show "allow always" when folder is untrusted', () => {
+                const mockConfig = {
+                    isTrustedFolder: () => false,
+                    getIdeMode: () => false,
+                };
+                const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: details, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }));
+                expect(lastFrame()).toMatchSnapshot();
+            });
+        });
+    });
+    describe('enablePermanentToolApproval setting', () => {
+        const editConfirmationDetails = {
+            type: 'edit',
+            title: 'Confirm Edit',
+            fileName: 'test.txt',
+            filePath: '/test.txt',
+            fileDiff: '...diff...',
+            originalContent: 'a',
+            newContent: 'b',
+            onConfirm: vi.fn(),
+        };
+        it('should NOT show "Allow for all future sessions" when setting is false (default)', () => {
+            const mockConfig = {
+                isTrustedFolder: () => true,
+                getIdeMode: () => false,
+            };
+            const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: editConfirmationDetails, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }), {
+                settings: createMockSettings({
+                    security: { enablePermanentToolApproval: false },
+                }),
+            });
+            expect(lastFrame()).not.toContain('Allow for all future sessions');
+        });
+        it('should show "Allow for all future sessions" when setting is true', () => {
+            const mockConfig = {
+                isTrustedFolder: () => true,
+                getIdeMode: () => false,
+            };
+            const { lastFrame } = renderWithProviders(_jsx(ToolConfirmationMessage, { confirmationDetails: editConfirmationDetails, config: mockConfig, availableTerminalHeight: 30, terminalWidth: 80 }), {
+                settings: createMockSettings({
+                    security: { enablePermanentToolApproval: true },
+                }),
+            });
+            expect(lastFrame()).toContain('Allow for all future sessions');
+        });
+    });
+});
+//# sourceMappingURL=ToolConfirmationMessage.test.js.map

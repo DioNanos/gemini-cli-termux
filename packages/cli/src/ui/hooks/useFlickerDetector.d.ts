@@ -1,0 +1,14 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import { type DOMElement } from 'ink';
+/**
+ * A hook that detects when the UI flickers (renders taller than the terminal).
+ * This is a sign of a rendering bug that should be fixed.
+ *
+ * @param rootUiRef A ref to the root UI element.
+ * @param terminalHeight The height of the terminal.
+ */
+export declare function useFlickerDetector(rootUiRef: React.RefObject<DOMElement | null>, terminalHeight: number): void;
