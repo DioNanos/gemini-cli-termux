@@ -88,8 +88,8 @@ export class StartSessionEvent implements BaseTelemetryEvent {
 
     this['event.name'] = 'cli_config';
     this['event.timestamp'] = new Date().toISOString();
-    this.model = config.getModel();
-    this.embedding_model = config.getEmbeddingModel();
+    this.model = config.getModel() || 'unknown';  // Fallback for undefined model
+    this.embedding_model = config.getEmbeddingModel() || 'unknown';  // Fallback for undefined embedding model
     this.sandbox_enabled =
       typeof config.getSandbox() === 'string' || !!config.getSandbox();
     this.core_tools_enabled = (config.getCoreTools() ?? []).join(',');

@@ -72,10 +72,14 @@
     }
   },
   "bin": {
-    "gemini": "bundle/gemini.js"
+    "gemini": "./bundle/gemini.js"
   },
   "files": [
     "bundle/",
+    "packages/cli/dist/",
+    "packages/cli/index.js",
+    "packages/core/dist/",
+    "packages/test-utils/dist/",
     "scripts/postinstall.cjs",
     "README.md",
     "LICENSE"

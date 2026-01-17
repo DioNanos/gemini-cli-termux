@@ -79,6 +79,10 @@ export function logCliConfiguration(
   config: Config,
   event: StartSessionEvent,
 ): void {
+  // Guard against undefined event to prevent TypeError
+  if (!event) {
+    return;
+  }
   void ClearcutLogger.getInstance(config)?.logStartSessionEvent(event);
   bufferTelemetryEvent(() => {
     const logger = logs.getLogger(SERVICE_NAME);
