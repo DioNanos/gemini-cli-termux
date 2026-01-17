@@ -4,7 +4,7 @@ Android/Termux optimized fork of **Google Gemini CLI** (`google-gemini/gemini-cl
 
 - ✅ Tracks upstream regularly
 - ✅ Minimal, Termux-focused patches
-- ✅ Tested release: **v0.26.0-termux** (tag: `cf4a6ac20`)
+- ✅ Tested release: **v0.26.1-termux** (tag: `cf4a6ac20`)
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
@@ -163,25 +163,25 @@ All patches are documented under:
 
 ---
 
-## Known differences vs upstream (v0.26.0-termux)
+## Known differences vs upstream (v0.26.1-termux)
 
 From the latest Termux test report:
 
 - `gemini extensions settings` was renamed to `gemini extensions config`
 - `auth` / `logout` are functional but may not appear in the top-level help output
 - A standalone PTY require-test may fail in some environments even when PTY works in the app
-- **Context Memory**: Upstream feature disabled (stub methods for compatibility only)
+- **Context Memory**: Functional, reads from settings
 
 Full report:
 
-- [GEMINI_TEST_REPORT_v0.26.0.md](./GEMINI_TEST_REPORT_v0.26.0.md)
+- [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
 
 ---
 
 ## Documentation
 
 - **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
-- **Test Report (latest)**: [GEMINI_TEST_REPORT_v0.26.0.md](./GEMINI_TEST_REPORT_v0.26.0.md)
+- **Test Report (latest)**: [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
 - **Context Memory**: `docs/cli/context-memory.md`
 - **Patches & Fixes**: `docs/patches/`
 

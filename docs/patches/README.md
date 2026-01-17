@@ -2,7 +2,7 @@
 
 This directory documents all Termux-specific patches applied to the upstream Gemini CLI.
 
-## Version: 0.26.0-termux
+## Version: 0.26.1-termux
 
 ### Core Patches
 
@@ -44,13 +44,16 @@ This directory documents all Termux-specific patches applied to the upstream Gem
 - **Issue**: Undefined event causes TypeError
 - **Fix**: Added `if (!event) return` guard
 
-#### 8. Context Memory & TTS Stub Methods
+#### 8. Context Memory & TTS Settings Integration
 - **Files**: `packages/core/src/config/config.ts`
 - **Issue**: Missing methods from upstream changes (new features in v0.26.0)
-- **Added stubs**:
-  - `getContextMemoryOptions()`: Returns disabled context memory config (upstream feature)
-  - `isTtsEnabled()`: Returns `false` for TTS check (mobile compatibility)
-- **Purpose**: Maintain compatibility with upstream code paths while keeping features disabled
+- **Added implementations**:
+  - `getContextMemoryOptions()`: Returns `this.contextMemory` (reads from settings)
+  - `isTtsEnabled()`: Returns `this.notifications.ttsEnabled ?? false` (reads from settings)
+- **Added properties**:
+  - `notifications: NotificationSettings` - stores TTS and notification prefs
+  - `contextMemory: ContextMemoryOptions` - stores context memory configuration
+- **Purpose**: Full integration with upstream features - users can now enable/disable via settings
 
 #### 9. IPty API Compatibility
 - **Files**: `packages/core/src/services/shellExecutionService.ts`
@@ -64,6 +67,8 @@ This directory documents all Termux-specific patches applied to the upstream Gem
 
 ### Release Notes
 
-- **v0.26.0-termux**: 146 upstream commits merged, 25 conflicts resolved
-- **Tag**: `v0.26.0-termux` (commit: `cf4a6ac20`)
-- **Test Report**: `GEMINI_TEST_REPORT_v0.26.0.md`
+- **v0.26.1-termux**: Context Memory & TTS settings integration restored
+- **Tag**: `v0.26.1-termux` (commit: `cf4a6ac20`)
+- **Test Report**: `GEMINI_TEST_REPORT_v0.26.1.md`
+- **v0.26.0-termux**: 146 upstream commits merged, 25 conflicts resolved, telemetry fixes
+- **Tag**: `v0.26.0-termux`

@@ -76,6 +76,7 @@ import type {
 import { ModelConfigService } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
 import { ContextManager } from '../services/contextManager.js';
+import type { ContextMemoryOptions } from '../utils/contextMemory.js';
 import type { GenerateContentParameters } from '@google/genai';
 
 // Re-export OAuth config type
@@ -110,6 +111,10 @@ import { fetchAdminControls } from '../code_assist/admin/admin_controls.js';
 export interface AccessibilitySettings {
   enableLoadingPhrases?: boolean;
   screenReader?: boolean;
+}
+
+export interface NotificationSettings {
+  ttsEnabled?: boolean;
 }
 
 export interface BugCommandSettings {
@@ -305,6 +310,8 @@ export interface ConfigParameters {
   showMemoryUsage?: boolean;
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
+  notifications?: NotificationSettings;
+  contextMemory?: ContextMemoryOptions;
   telemetry?: TelemetrySettings;
   usageStatisticsEnabled?: boolean;
   fileFiltering?: {
@@ -434,6 +441,8 @@ export class Config {
   private geminiMdFilePaths: string[];
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
+  private readonly notifications: NotificationSettings;
+  private readonly contextMemory: ContextMemoryOptions;
   private readonly telemetrySettings: TelemetrySettings;
   private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
@@ -575,6 +584,8 @@ export class Config {
     this.geminiMdFilePaths = params.geminiMdFilePaths ?? [];
     this.showMemoryUsage = params.showMemoryUsage ?? false;
     this.accessibility = params.accessibility ?? {};
+    this.notifications = params.notifications ?? {};
+    this.contextMemory = params.contextMemory ?? { enabled: false };
     this.telemetrySettings = {
       enabled: params.telemetry?.enabled ?? false,
       target: params.telemetry?.target ?? DEFAULT_TELEMETRY_TARGET,
@@ -2019,33 +2030,16 @@ export class Config {
 
   /**
    * Get context memory options from settings.
-   * TODO: Implement proper context memory options from settings.
    */
-  getContextMemoryOptions(): import('../utils/contextMemory.js').ContextMemoryOptions | undefined {
-    // Stub implementation - context memory disabled by default
-    return {
-      enabled: false,
-      primary: 'gemini',
-      autoLoadGemini: false,
-      autoLoadJsonBase: false,
-      autoLoadJsonUser: false,
-      allowBaseWrite: false,
-      mcpImport: { enabled: false, categories: [], scope: 'none' },
-      paths: { base: '', user: '', journal: '' },
-      maxEntries: 100,
-      maxChars: 10000,
-      journalThreshold: 1000,
-      journalMaxAgeDays: 30,
-    };
+  getContextMemoryOptions(): ContextMemoryOptions {
+    return this.contextMemory;
   }
 
   /**
    * Check if TTS (Text-to-Speech) is enabled.
-   * TODO: Implement proper TTS check from settings.
    */
   isTtsEnabled(): boolean {
-    // Stub implementation - TTS disabled by default
-    return false;
+    return this.notifications.ttsEnabled ?? false;
   }
 
   /**
