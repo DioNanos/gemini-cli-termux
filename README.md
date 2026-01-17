@@ -170,6 +170,7 @@ From the latest Termux test report:
 - `gemini extensions settings` was renamed to `gemini extensions config`
 - `auth` / `logout` are functional but may not appear in the top-level help output
 - A standalone PTY require-test may fail in some environments even when PTY works in the app
+- **Context Memory**: Upstream feature disabled (stub methods for compatibility only)
 
 Full report:
 

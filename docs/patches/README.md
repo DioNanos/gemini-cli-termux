@@ -44,10 +44,13 @@ This directory documents all Termux-specific patches applied to the upstream Gem
 - **Issue**: Undefined event causes TypeError
 - **Fix**: Added `if (!event) return` guard
 
-#### 8. Config Stub Methods
+#### 8. Context Memory & TTS Stub Methods
 - **Files**: `packages/core/src/config/config.ts`
-- **Issue**: Missing methods from upstream changes
-- **Fix**: Added `getContextMemoryOptions()` and `isTtsEnabled()` stubs
+- **Issue**: Missing methods from upstream changes (new features in v0.26.0)
+- **Added stubs**:
+  - `getContextMemoryOptions()`: Returns disabled context memory config (upstream feature)
+  - `isTtsEnabled()`: Returns `false` for TTS check (mobile compatibility)
+- **Purpose**: Maintain compatibility with upstream code paths while keeping features disabled
 
 #### 9. IPty API Compatibility
 - **Files**: `packages/core/src/services/shellExecutionService.ts`
