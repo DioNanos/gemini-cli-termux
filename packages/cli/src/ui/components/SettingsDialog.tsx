@@ -29,7 +29,7 @@ import {
   isDefaultValue,
   requiresRestart,
   getRestartRequiredFromModified,
-  getDefaultValue,
+  getEffectiveDefaultValue,
   setPendingSettingValueAny,
   getNestedValue,
   getEffectiveValue,
@@ -575,7 +575,7 @@ export function SettingsDialog({
           const definition = getSettingDefinition(editingKey);
           const type = definition?.type;
 
-          if (key.paste && key.sequence) {
+          if (key.name === 'paste' && key.sequence) {
             let pasted = key.sequence;
             if (type === 'number') {
               pasted = key.sequence.replace(/[^0-9\-+.]/g, '');
@@ -712,7 +712,10 @@ export function SettingsDialog({
           // Ctrl+C or Ctrl+L: Clear current setting and reset to default
           const currentSetting = items[activeSettingIndex];
           if (currentSetting) {
-            const defaultValue = getDefaultValue(currentSetting.value);
+            const defaultValue = getEffectiveDefaultValue(
+              currentSetting.value,
+              config,
+            );
             const defType = currentSetting.type;
             if (defType === 'boolean') {
               const booleanDefaultValue =
@@ -932,7 +935,10 @@ export function SettingsDialog({
                 const path = item.value.split('.');
                 const currentValue = getNestedValue(pendingSettings, path);
 
-                const defaultValue = getDefaultValue(item.value);
+                const defaultValue = getEffectiveDefaultValue(
+                  item.value,
+                  config,
+                );
 
                 if (currentValue !== undefined && currentValue !== null) {
                   displayValue = String(currentValue);

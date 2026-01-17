@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.24.10-termux",
+  "version": "0.26.0-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -14,7 +14,7 @@
     "url": "https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.24.9-termux"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.26.0-termux"
   },
   "scripts": {
     "start": "crossenv NODE_ENV=development node scripts/start.js",
@@ -41,7 +41,9 @@
     "test": "npm run test --workspaces --if-present",
     "test:ci": "npm run test:ci --workspaces --if-present && npm run test:scripts",
     "test:scripts": "vitest run --config ./scripts/tests/vitest.config.ts",
-    "test:e2e": "crossenv VERBOSE=true KEEP_OUTPUT=true npm run test:integration:sandbox:none",
+    "test:always_passing_evals": "vitest run --config evals/vitest.config.ts",
+    "test:all_evals": "cross-env RUN_EVALS=1 vitest run --config evals/vitest.config.ts",
+    "test:e2e": "cross-env VERBOSE=true KEEP_OUTPUT=true npm run test:integration:sandbox:none",
     "test:integration:all": "npm run test:integration:sandbox:none && npm run test:integration:sandbox:docker && npm run test:integration:sandbox:podman",
     "test:integration:sandbox:none": "crossenv GEMINI_SANDBOX=false vitest run --root ./integration-tests",
     "test:integration:sandbox:docker": "crossenv GEMINI_SANDBOX=docker npm run build:sandbox && crossenv GEMINI_SANDBOX=docker vitest run --root ./integration-tests",
@@ -79,6 +81,7 @@
     "LICENSE"
   ],
   "devDependencies": {
+    "@agentclientprotocol/sdk": "^0.12.0",
     "@octokit/rest": "^22.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/marked": "^5.0.2",

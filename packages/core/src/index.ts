@@ -22,6 +22,7 @@ export * from './confirmation-bus/message-bus.js';
 export * from './commands/extensions.js';
 export * from './commands/restore.js';
 export * from './commands/init.js';
+export * from './commands/memory.js';
 export * from './commands/types.js';
 
 // Export Core Logic
@@ -89,7 +90,8 @@ export * from './utils/extensionLoader.js';
 export * from './utils/package.js';
 export * from './utils/version.js';
 export * from './utils/checkpointUtils.js';
-export * from './utils/contextMemory.js';
+export * from './utils/apiConversionUtils.js';
+export * from './utils/channel.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';
@@ -124,6 +126,8 @@ export * from './prompts/mcp-prompts.js';
 
 // Export agent definitions
 export * from './agents/types.js';
+export * from './agents/agentLoader.js';
+export * from './agents/local-executor.js';
 
 // Export specific tool logic
 export * from './tools/read-file.js';
@@ -141,7 +145,6 @@ export * from './tools/read-many-files.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
 export * from './tools/write-todos.js';
-export * from './tools/mcpImportTool.js';
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';
@@ -175,6 +178,3 @@ export * from './agents/types.js';
 // Export stdio utils
 export * from './utils/stdio.js';
 export * from './utils/terminal.js';
-
-// TERMUX PATCH: Export Termux detection utilities
-export * from './utils/termux-detect.js';

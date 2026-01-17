@@ -4,19 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  debugLogger,
-  isGitRepository,
-  getPackageJson,
-} from '@google/gemini-cli-core';
+import { debugLogger, isGitRepository } from '@google/gemini-cli-core';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as childProcess from 'node:child_process';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const isDevelopment = process.env['NODE_ENV'] === 'development';
 
@@ -39,29 +31,14 @@ export interface InstallationInfo {
   updateMessage?: string;
 }
 
-/**
- * Gets the actual package name from package.json.
- * This ensures forked packages use their own name for updates.
- */
-async function getPackageName(): Promise<string> {
-  try {
-    const packageJson = await getPackageJson(__dirname);
-    return packageJson?.name || '@mmmbuto/gemini-cli-termux';
-  } catch {
-    return '@mmmbuto/gemini-cli-termux';
-  }
-}
-
-export async function getInstallationInfo(
+export function getInstallationInfo(
   projectRoot: string,
-  isAutoUpdateDisabled: boolean,
-): Promise<InstallationInfo> {
+  isAutoUpdateEnabled: boolean,
+): InstallationInfo {
   const cliPath = process.argv[1];
   if (!cliPath) {
     return { packageManager: PackageManager.UNKNOWN, isGlobal: false };
   }
-
-  const packageName = await getPackageName();
 
   try {
     // Normalize path separators to forward slashes for consistent matching.
@@ -121,27 +98,27 @@ export async function getInstallationInfo(
 
     // Check for pnpm
     if (realPath.includes('/.pnpm/global')) {
-      const updateCommand = `pnpm add -g ${packageName}@latest`;
+      const updateCommand = 'pnpm add -g @google/gemini-cli@latest';
       return {
         packageManager: PackageManager.PNPM,
         isGlobal: true,
         updateCommand,
-        updateMessage: isAutoUpdateDisabled
-          ? `Please run ${updateCommand} to update`
-          : 'Installed with pnpm. Attempting to automatically update now...',
+        updateMessage: isAutoUpdateEnabled
+          ? 'Installed with pnpm. Attempting to automatically update now...'
+          : `Please run ${updateCommand} to update`,
       };
     }
 
     // Check for yarn
     if (realPath.includes('/.yarn/global')) {
-      const updateCommand = `yarn global add ${packageName}@latest`;
+      const updateCommand = 'yarn global add @google/gemini-cli@latest';
       return {
         packageManager: PackageManager.YARN,
         isGlobal: true,
         updateCommand,
-        updateMessage: isAutoUpdateDisabled
-          ? `Please run ${updateCommand} to update`
-          : 'Installed with yarn. Attempting to automatically update now...',
+        updateMessage: isAutoUpdateEnabled
+          ? 'Installed with yarn. Attempting to automatically update now...'
+          : `Please run ${updateCommand} to update`,
       };
     }
 
@@ -154,14 +131,14 @@ export async function getInstallationInfo(
       };
     }
     if (realPath.includes('/.bun/bin')) {
-      const updateCommand = `bun add -g ${packageName}@latest`;
+      const updateCommand = 'bun add -g @google/gemini-cli@latest';
       return {
         packageManager: PackageManager.BUN,
         isGlobal: true,
         updateCommand,
-        updateMessage: isAutoUpdateDisabled
-          ? `Please run ${updateCommand} to update`
-          : 'Installed with bun. Attempting to automatically update now...',
+        updateMessage: isAutoUpdateEnabled
+          ? 'Installed with bun. Attempting to automatically update now...'
+          : `Please run ${updateCommand} to update`,
       };
     }
 
@@ -187,14 +164,14 @@ export async function getInstallationInfo(
     }
 
     // Assume global npm
-    const updateCommand = `npm install -g ${packageName}@latest`;
+    const updateCommand = 'npm install -g @google/gemini-cli@latest';
     return {
       packageManager: PackageManager.NPM,
       isGlobal: true,
       updateCommand,
-      updateMessage: isAutoUpdateDisabled
-        ? `Please run ${updateCommand} to update`
-        : 'Installed with npm. Attempting to automatically update now...',
+      updateMessage: isAutoUpdateEnabled
+        ? 'Installed with npm. Attempting to automatically update now...'
+        : `Please run ${updateCommand} to update`,
     };
   } catch (error) {
     debugLogger.log(error);

@@ -22,11 +22,8 @@ import {
   type ExtensionLoader,
   startupProfiler,
   PREVIEW_GEMINI_MODEL,
-  getDefaultContextMemoryOptions,
-  setRuntimeContextMemoryOptions,
   homedir,
 } from '@google/gemini-cli-core';
-import type { ContextMemoryOptions } from '@google/gemini-cli-core';
 
 import { logger } from '../utils/logger.js';
 import type { Settings } from './settings.js';
@@ -39,6 +36,10 @@ export async function loadConfig(
 ): Promise<Config> {
   const workspaceDir = process.cwd();
   const adcFilePath = process.env['GOOGLE_APPLICATION_CREDENTIALS'];
+
+  const folderTrust =
+    settings.folderTrust === true ||
+    process.env['GEMINI_FOLDER_TRUST'] === 'true';
 
   const configParams: ConfigParameters = {
     sessionId: taskId,
@@ -75,7 +76,8 @@ export async function loadConfig(
         settings.fileFiltering?.enableRecursiveFileSearch,
     },
     ideMode: false,
-    folderTrust: settings.folderTrust === true,
+    folderTrust,
+    trustedFolder: true,
     extensionLoader,
     checkpointing: process.env['CHECKPOINTING']
       ? process.env['CHECKPOINTING'] === 'true'
@@ -86,26 +88,20 @@ export async function loadConfig(
   };
 
   const fileService = new FileDiscoveryService(workspaceDir);
-  const contextMemoryOptions: ContextMemoryOptions =
-    getDefaultContextMemoryOptions();
-  setRuntimeContextMemoryOptions(contextMemoryOptions);
-  const { memoryContent, fileCount } = await loadServerHierarchicalMemory(
-    workspaceDir,
-    [workspaceDir],
-    false,
-    fileService,
-    extensionLoader,
-    settings.folderTrust === true,
-    undefined,
-    undefined,
-    undefined,
-    contextMemoryOptions,
-  );
+  const { memoryContent, fileCount, filePaths } =
+    await loadServerHierarchicalMemory(
+      workspaceDir,
+      [workspaceDir],
+      false,
+      fileService,
+      extensionLoader,
+      folderTrust,
+    );
   configParams.userMemory = memoryContent;
   configParams.geminiMdFileCount = fileCount;
+  configParams.geminiMdFilePaths = filePaths;
   const config = new Config({
     ...configParams,
-    notifications: { ttsEnabled: true },
   });
   // Needed to initialize ToolRegistry, and git checkpointing if enabled
   await config.initialize();

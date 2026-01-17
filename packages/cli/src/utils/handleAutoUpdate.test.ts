@@ -52,7 +52,11 @@ describe('handleAutoUpdate', () => {
     mockSettings = {
       merged: {
         general: {
-          disableAutoUpdate: false,
+          enableAutoUpdate: true,
+          enableAutoUpdateNotification: true,
+        },
+        tools: {
+          sandbox: false,
         },
       },
     } as LoadedSettings;
@@ -74,31 +78,31 @@ describe('handleAutoUpdate', () => {
     vi.clearAllMocks();
   });
 
-  it('should do nothing if update info is null', async () => {
-    await handleAutoUpdate(null, mockSettings, '/root', mockSpawn);
+  it('should do nothing if update info is null', () => {
+    handleAutoUpdate(null, mockSettings, '/root', mockSpawn);
     expect(mockGetInstallationInfo).not.toHaveBeenCalled();
     expect(updateEventEmitter.emit).not.toHaveBeenCalled();
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it('should do nothing if update nag is disabled', async () => {
-    mockSettings.merged.general!.disableUpdateNag = true;
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+  it('should do nothing if update prompts are disabled', () => {
+    mockSettings.merged.general.enableAutoUpdateNotification = false;
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     expect(mockGetInstallationInfo).not.toHaveBeenCalled();
     expect(updateEventEmitter.emit).not.toHaveBeenCalled();
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it('should emit "update-received" but not update if auto-updates are disabled', async () => {
-    mockSettings.merged.general!.disableAutoUpdate = true;
-    mockGetInstallationInfo.mockResolvedValue({
+  it('should emit "update-received" but not update if auto-updates are disabled', () => {
+    mockSettings.merged.general.enableAutoUpdate = false;
+    mockGetInstallationInfo.mockReturnValue({
       updateCommand: 'npm i -g @google/gemini-cli@latest',
       updateMessage: 'Please update manually.',
       isGlobal: true,
       packageManager: PackageManager.NPM,
     });
 
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
@@ -109,30 +113,30 @@ describe('handleAutoUpdate', () => {
 
   it.each([PackageManager.NPX, PackageManager.PNPX, PackageManager.BUNX])(
     'should suppress update notifications when running via %s',
-    async (packageManager) => {
-      mockGetInstallationInfo.mockResolvedValue({
+    (packageManager) => {
+      mockGetInstallationInfo.mockReturnValue({
         updateCommand: undefined,
         updateMessage: `Running via ${packageManager}, update not applicable.`,
         isGlobal: false,
         packageManager,
       });
 
-      await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
       expect(updateEventEmitter.emit).not.toHaveBeenCalled();
       expect(mockSpawn).not.toHaveBeenCalled();
     },
   );
 
-  it('should emit "update-received" but not update if no update command is found', async () => {
-    mockGetInstallationInfo.mockResolvedValue({
+  it('should emit "update-received" but not update if no update command is found', () => {
+    mockGetInstallationInfo.mockReturnValue({
       updateCommand: undefined,
       updateMessage: 'Cannot determine update command.',
       isGlobal: false,
       packageManager: PackageManager.NPM,
     });
 
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
@@ -141,25 +145,24 @@ describe('handleAutoUpdate', () => {
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it('should combine update messages correctly', async () => {
-    mockGetInstallationInfo.mockResolvedValue({
+  it('should combine update messages correctly', () => {
+    mockGetInstallationInfo.mockReturnValue({
       updateCommand: undefined, // No command to prevent spawn
       updateMessage: 'This is an additional message.',
       isGlobal: false,
       packageManager: PackageManager.NPM,
     });
 
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(updateEventEmitter.emit).toHaveBeenCalledTimes(1);
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-received', {
       message: 'An update is available!\nThis is an additional message.',
     });
-    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it('should attempt to perform an update when conditions are met', async () => {
-    mockGetInstallationInfo.mockResolvedValue({
+    mockGetInstallationInfo.mockReturnValue({
       updateCommand: 'npm i -g @google/gemini-cli@latest',
       updateMessage: 'This is an additional message.',
       isGlobal: false,
@@ -171,14 +174,14 @@ describe('handleAutoUpdate', () => {
       mockChildProcess.emit('close', 0);
     }, 0);
 
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(mockSpawn).toHaveBeenCalledOnce();
   });
 
   it('should emit "update-failed" when the update process fails', async () => {
     await new Promise<void>((resolve) => {
-      mockGetInstallationInfo.mockResolvedValue({
+      mockGetInstallationInfo.mockReturnValue({
         updateCommand: 'npm i -g @google/gemini-cli@latest',
         updateMessage: 'This is an additional message.',
         isGlobal: false,
@@ -191,7 +194,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-failed', {
@@ -202,7 +205,7 @@ describe('handleAutoUpdate', () => {
 
   it('should emit "update-failed" when the spawn function throws an error', async () => {
     await new Promise<void>((resolve) => {
-      mockGetInstallationInfo.mockResolvedValue({
+      mockGetInstallationInfo.mockReturnValue({
         updateCommand: 'npm i -g @google/gemini-cli@latest',
         updateMessage: 'This is an additional message.',
         isGlobal: false,
@@ -215,7 +218,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-failed', {
@@ -232,14 +235,14 @@ describe('handleAutoUpdate', () => {
         latest: '2.0.0-nightly',
       },
     };
-    mockGetInstallationInfo.mockResolvedValue({
+    mockGetInstallationInfo.mockReturnValue({
       updateCommand: 'npm i -g @google/gemini-cli@latest',
       updateMessage: 'This is an additional message.',
       isGlobal: false,
       packageManager: PackageManager.NPM,
     });
 
-    await handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'npm i -g @google/gemini-cli@nightly',
@@ -253,7 +256,7 @@ describe('handleAutoUpdate', () => {
 
   it('should emit "update-success" when the update process succeeds', async () => {
     await new Promise<void>((resolve) => {
-      mockGetInstallationInfo.mockResolvedValue({
+      mockGetInstallationInfo.mockReturnValue({
         updateCommand: 'npm i -g @google/gemini-cli@latest',
         updateMessage: 'This is an additional message.',
         isGlobal: false,
@@ -266,7 +269,7 @@ describe('handleAutoUpdate', () => {
         resolve();
       }, 0);
 
-      void handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+      handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
     });
 
     expect(updateEventEmitter.emit).toHaveBeenCalledWith('update-success', {

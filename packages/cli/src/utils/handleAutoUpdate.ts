@@ -23,20 +23,20 @@ export async function handleAutoUpdate(
     return;
   }
 
-  if (settings.merged.tools?.sandbox || process.env['GEMINI_SANDBOX']) {
+  if (settings.merged.tools.sandbox || process.env['GEMINI_SANDBOX']) {
     updateEventEmitter.emit('update-info', {
       message: `${info.message}\nAutomatic update is not available in sandbox mode.`,
     });
     return;
   }
 
-  if (settings.merged.general?.disableUpdateNag) {
+  if (!settings.merged.general.enableAutoUpdateNotification) {
     return;
   }
 
   const installationInfo = await getInstallationInfo(
     projectRoot,
-    settings.merged.general?.disableAutoUpdate ?? false,
+    settings.merged.general.enableAutoUpdate,
   );
 
   if (
@@ -58,7 +58,7 @@ export async function handleAutoUpdate(
 
   if (
     !installationInfo.updateCommand ||
-    settings.merged.general?.disableAutoUpdate
+    !settings.merged.general.enableAutoUpdate
   ) {
     return;
   }
