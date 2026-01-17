@@ -38,6 +38,8 @@ This fork keeps the upstream experience intact while adding the **smallest possi
 - Native **ARM64 PTY** support (no node-gyp build on device)
 - Termux-friendly clipboard detection
 - Mobile filesystem + environment guardrails
+- **Context Memory** integration (persistent memory in `~/.gemini/context_memory/`)
+- **TTS (Text-to-Speech)** support via `termux-tts-speak`
 
 ---
 
@@ -170,7 +172,8 @@ From the latest Termux test report:
 - `gemini extensions settings` was renamed to `gemini extensions config`
 - `auth` / `logout` are functional but may not appear in the top-level help output
 - A standalone PTY require-test may fail in some environments even when PTY works in the app
-- **Context Memory**: Functional, reads from settings
+- **Context Memory**: ✅ **Functional** - reads from `~/.gemini/context_memory/`
+- **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings, `termux-tts-speak` enabled by default
 
 Full report:
 
