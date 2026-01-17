@@ -60,3 +60,4 @@ patch_output.log
 .gemini-clipboard/
 .eslintcache
 evals/logs/
+*.tgz
