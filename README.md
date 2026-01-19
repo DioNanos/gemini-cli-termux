@@ -1,6 +1,7 @@
 # 🤖 Gemini CLI – Termux Edition
 
-Android/Termux optimized fork of **Google Gemini CLI** (`google-gemini/gemini-cli`).
+Android/Termux optimized fork of **Google Gemini CLI**
+(`google-gemini/gemini-cli`).
 
 - ✅ Tracks upstream regularly
 - ✅ Minimal, Termux-focused patches
@@ -13,6 +14,10 @@ Android/Termux optimized fork of **Google Gemini CLI** (`google-gemini/gemini-cl
 
 ---
 
+<div align="center">
+  <img src="./docs/assets/hero.png" alt="Gemini CLI Termux screenshot" width="800" />
+</div>
+
 ## What is this?
 
 This repository packages a **Termux-first build** of Gemini CLI:
@@ -21,7 +26,8 @@ This repository packages a **Termux-first build** of Gemini CLI:
 - **Upstream docs**: https://geminicli.com/docs/
 - **This fork**: https://github.com/DioNanos/gemini-cli-termux
 
-If you are on **macOS / Linux / Windows**, you should install the upstream package:
+If you are on **macOS / Linux / Windows**, you should install the upstream
+package:
 
 ```bash
 npm install -g @google/gemini-cli
@@ -31,14 +37,17 @@ npm install -g @google/gemini-cli
 
 ## Why a Termux fork?
 
-Gemini CLI is designed for desktop platforms. On Termux/Android, a few dependencies and environment assumptions can break or degrade UX.
+Gemini CLI is designed for desktop platforms. On Termux/Android, a few
+dependencies and environment assumptions can break or degrade UX.
 
-This fork keeps the upstream experience intact while adding the **smallest possible patch-set** to make it reliable on Android:
+This fork keeps the upstream experience intact while adding the **smallest
+possible patch-set** to make it reliable on Android:
 
 - Native **ARM64 PTY** support (no node-gyp build on device)
 - Termux-friendly clipboard detection
 - Mobile filesystem + environment guardrails
-- **Context Memory** integration (persistent memory in `~/.gemini/context_memory/`)
+- **Context Memory** integration (persistent memory in
+  `~/.gemini/context_memory/`)
 - **TTS (Text-to-Speech)** support via `termux-tts-speak`
 
 ---
@@ -74,7 +83,8 @@ npm install -g @mmmbuto/gemini-cli-termux@latest
 
 ### Upstream release channels
 
-Upstream publishes `latest`, `preview`, and `nightly` builds. This fork is meant to track upstream **stable** while keeping Termux fixes.
+Upstream publishes `latest`, `preview`, and `nightly` builds. This fork is meant
+to track upstream **stable** while keeping Termux fixes.
 
 ---
 
@@ -106,7 +116,8 @@ gemini -p "Explain the project structure" \
 
 ## Authentication
 
-Gemini CLI supports multiple authentication methods (Google login, Gemini API key, Vertex AI). Termux users can use the same options as upstream.
+Gemini CLI supports multiple authentication methods (Google login, Gemini API
+key, Vertex AI). Termux users can use the same options as upstream.
 
 ### Interactive (recommended)
 
@@ -118,7 +129,9 @@ Start `gemini`, then run:
 
 Follow the on-screen flow.
 
-> Note (Android): Google login uses a browser flow that redirects to a `localhost` URL the CLI listens on during setup. Use the browser on the same device.
+> Note (Android): Google login uses a browser flow that redirects to a
+> `localhost` URL the CLI listens on during setup. Use the browser on the same
+> device.
 
 ### Environment variables (headless / CI)
 
@@ -142,7 +155,8 @@ export GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
 # export GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/to/keyfile.json"
 ```
 
-**Persisting without leaking secrets:** create a `.gemini/.env` file (project-level) or `~/.gemini/.env` (user-level).
+**Persisting without leaking secrets:** create a `.gemini/.env` file
+(project-level) or `~/.gemini/.env` (user-level).
 
 Full docs:
 
@@ -157,7 +171,8 @@ This fork applies a minimal set of Termux-specific fixes:
 - **Clipboard detection fixes** for Android/Termux environments.
 - **ARM64 PTY prebuild** for responsive interactive UI on Android.
 - **Termux-API tool discovery** (when `termux-api` is installed).
-- **Mobile-safe guards** (avoids desktop-only assumptions for paths, keychains, etc.).
+- **Mobile-safe guards** (avoids desktop-only assumptions for paths, keychains,
+  etc.).
 
 All patches are documented under:
 
@@ -170,10 +185,13 @@ All patches are documented under:
 From the latest Termux test report:
 
 - `gemini extensions settings` was renamed to `gemini extensions config`
-- `auth` / `logout` are functional but may not appear in the top-level help output
-- A standalone PTY require-test may fail in some environments even when PTY works in the app
+- `auth` / `logout` are functional but may not appear in the top-level help
+  output
+- A standalone PTY require-test may fail in some environments even when PTY
+  works in the app
 - **Context Memory**: ✅ **Functional** - reads from `~/.gemini/context_memory/`
-- **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings, `termux-tts-speak` enabled by default
+- **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings,
+  `termux-tts-speak` enabled by default
 
 Full report:
 
@@ -184,7 +202,8 @@ Full report:
 ## Documentation
 
 - **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
-- **Test Report (latest)**: [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
+- **Test Report (latest)**:
+  [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
 - **Context Memory**: `docs/cli/context-memory.md`
 - **Patches & Fixes**: `docs/patches/`
 
@@ -204,7 +223,8 @@ node bundle/gemini.js --version
 
 ## Disclaimer
 
-This is an **independent community fork** created to improve the Termux experience.
+This is an **independent community fork** created to improve the Termux
+experience.
 
 Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
 
@@ -212,6 +232,7 @@ Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
 
 ## Support
 
-If this project saved you time (or helped you run real work from your phone), you can support it here:
+If this project saved you time (or helped you run real work from your phone),
+you can support it here:
 
 - ☕ Ko-fi: https://ko-fi.com/dionanos
