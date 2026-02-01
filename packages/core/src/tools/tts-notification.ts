@@ -119,7 +119,7 @@ export class TtsNotificationInvocation extends BaseToolInvocation<
     // Check if TTS is enabled in settings
     if (!this.config.isTtsEnabled()) {
       const msg = 'TTS notifications are disabled in settings.';
-      debugLogger.info('[TTS] Notification skipped:', msg);
+      debugLogger.log('[TTS] Notification skipped:', msg);
       return {
         llmContent: msg,
         returnDisplay: msg,
@@ -145,7 +145,7 @@ export class TtsNotificationInvocation extends BaseToolInvocation<
           return;
         }
 
-        debugLogger.info('[TTS] Spoke:', message);
+        debugLogger.log('[TTS] Spoke:', message);
         resolve({
           llmContent: `TTS notification sent: "${message}"`,
           returnDisplay: `[TTS] "${message}"`,

@@ -65,6 +65,7 @@ function resolveMemoryMode(settings: Settings): {
 }
 
 function getContextMemorySettings(settings: Settings) {
+  // @ts-ignore - contextMemory may not be fully typed
   return settings.memory?.contextMemory ?? settings.context?.contextMemory;
 }
 
@@ -505,11 +506,13 @@ export async function loadCliConfig(
     enabled: contextMemorySettings?.enabled ?? true,
     allowBaseWrite: contextMemorySettings?.allowBaseWrite ?? false,
     primary: contextMemorySettings?.primary ?? 'gemini',
-    autoLoad: {
-      gemini: contextMemorySettings?.autoLoad?.gemini ?? true,
-      jsonBase: contextMemorySettings?.autoLoad?.jsonBase ?? true,
-      jsonUser: contextMemorySettings?.autoLoad?.jsonUser ?? true,
-    },
+    autoLoadGemini: contextMemorySettings?.autoLoadGemini ?? true,
+    autoLoadJsonBase: contextMemorySettings?.autoLoadJsonBase ?? true,
+    autoLoadJsonUser: contextMemorySettings?.autoLoadJsonUser ?? true,
+    maxEntries: contextMemorySettings?.maxEntries ?? 100,
+    maxChars: contextMemorySettings?.maxChars ?? 10000,
+    journalThreshold: contextMemorySettings?.journalThreshold ?? 1000,
+    journalMaxAgeDays: contextMemorySettings?.journalMaxAgeDays ?? 30,
     paths: {
       base: contextMemorySettings?.paths?.base ?? '',
       user: contextMemorySettings?.paths?.user ?? '',

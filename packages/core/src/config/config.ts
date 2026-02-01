@@ -84,7 +84,7 @@ import type {
 import { ModelConfigService } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
 import { ContextManager } from '../services/contextManager.js';
-import type { ContextMemoryOptions } from '../utils/contextMemory.js';
+import { getDefaultContextMemoryOptions } from '../utils/contextMemory.js'; import type { ContextMemoryOptions } from '../utils/contextMemory.js';
 import type { GenerateContentParameters } from '@google/genai';
 
 // Re-export OAuth config type
@@ -670,7 +670,7 @@ export class Config {
     this.showMemoryUsage = params.showMemoryUsage ?? false;
     this.accessibility = params.accessibility ?? {};
     this.notifications = params.notifications ?? {};
-    this.contextMemory = params.contextMemory ?? { enabled: false };
+    this.contextMemory = params.contextMemory ?? getDefaultContextMemoryOptions();
     this.telemetrySettings = {
       enabled: params.telemetry?.enabled ?? false,
       target: params.telemetry?.target ?? DEFAULT_TELEMETRY_TARGET,

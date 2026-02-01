@@ -110,15 +110,11 @@ Promise.allSettled([
       writeFileSync('./bundle/esbuild.json', JSON.stringify(metafile, null, 2));
     }
   }),
-  esbuild.build(a2aServerConfig),
+  // Skip a2a-server (not needed for Termux)
 ]).then((results) => {
-  const [cliResult, a2aResult] = results;
+  const [cliResult] = results;
   if (cliResult.status === 'rejected') {
     console.error('gemini.js build failed:', cliResult.reason);
     process.exit(1);
-  }
-  // error in a2a-server bundling will not stop gemini.js bundling process
-  if (a2aResult.status === 'rejected') {
-    console.warn('a2a-server build failed:', a2aResult.reason);
   }
 });

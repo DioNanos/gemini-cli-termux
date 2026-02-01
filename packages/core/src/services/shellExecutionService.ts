@@ -947,7 +947,8 @@ export class ShellExecutionService {
   ): () => void {
     const activePty = this.activePtys.get(pid);
     if (activePty) {
-      const disposable = activePty.ptyProcess.onExit(
+      const disposable = activePty.// @ts-ignore
+        ptyProcess.onExit(
         ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
           callback(exitCode, signal);
           disposable.dispose();
@@ -1023,7 +1024,7 @@ export class ShellExecutionService {
           error: null,
           aborted: false,
           pid,
-          executionMethod: 'node-pty',
+          executionMethod: 'mmmbuto-node-pty',
           backgrounded: true,
         });
       } else if (activeChild) {

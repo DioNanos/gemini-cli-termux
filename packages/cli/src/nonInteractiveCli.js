@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { isSlashCommand } from './ui/utils/commandUtils.js';
-import { executeToolCall, GeminiEventType, FatalInputError, promptIdContext, OutputFormat, JsonFormatter, StreamJsonFormatter, JsonStreamEventType, uiTelemetryService, debugLogger, coreEvents, CoreEvent, createWorkingStdio, recordToolCallInteractions, ToolErrorType, } from '@google/gemini-cli-core';
+import { GeminiEventType, FatalInputError, promptIdContext, OutputFormat, JsonFormatter, StreamJsonFormatter, JsonStreamEventType, uiTelemetryService, debugLogger, coreEvents, CoreEvent, createWorkingStdio, recordToolCallInteractions, ToolErrorType, } from '@google/gemini-cli-core';
 import readline from 'node:readline';
 import { convertSessionToHistoryFormats } from './ui/hooks/useSessionBrowser.js';
 import { handleSlashCommand } from './nonInteractiveCliCommands.js';
