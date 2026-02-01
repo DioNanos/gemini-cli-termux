@@ -164,7 +164,7 @@ Full docs:
 
 ---
 
-## Termux optimizations (patches)
+## Termux optimizations
 
 This fork applies a minimal set of Termux-specific fixes:
 
@@ -173,18 +173,17 @@ This fork applies a minimal set of Termux-specific fixes:
 - **Termux-API tool discovery** (when `termux-api` is installed).
 - **Mobile-safe guards** (avoids desktop-only assumptions for paths, keychains,
   etc.).
+- **googleSearch tool fix** - works without requiring additional NPM installs.
 
-All patches are documented under:
-
-- `docs/patches/`
+See `docs/TERMUX.md` for Termux-specific documentation.
 
 ---
 
-## Known differences vs upstream (v0.26.1-termux)
+## Known differences vs upstream (v0.28.0-termux)
 
-From the latest Termux test report:
+From the latest test report (Linux x86_64):
 
-- `gemini extensions settings` was renamed to `gemini extensions config`
+- `gemini extensions settings` works, may appear as `config` in some versions
 - `auth` / `logout` are functional but may not appear in the top-level help
   output
 - A standalone PTY require-test may fail in some environments even when PTY
@@ -192,10 +191,11 @@ From the latest Termux test report:
 - **Context Memory**: ✅ **Functional** - reads from `~/.gemini/context_memory/`
 - **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings,
   `termux-tts-speak` enabled by default
+- **googleSearch tool**: ✅ **Fixed** - works without external dependencies
 
 Full report:
 
-- [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
+- [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
 
 ---
 
@@ -203,9 +203,9 @@ Full report:
 
 - **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
 - **Test Report (latest)**:
-  [GEMINI_TEST_REPORT_v0.26.1.md](./GEMINI_TEST_REPORT_v0.26.1.md)
+  [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
 - **Context Memory**: `docs/cli/context-memory.md`
-- **Patches & Fixes**: `docs/patches/`
+- **Termux-specific docs**: `docs/TERMUX.md`
 
 ---
 
