@@ -24,7 +24,6 @@ import { getToolSuggestion } from '../utils/tool-utils.js';
 import type { ToolConfirmationRequest } from '../confirmation-bus/types.js';
 import { MessageBusType } from '../confirmation-bus/types.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
-import { fireToolNotificationHook } from './coreToolHookTriggers.js';
 import {
   type ToolCall,
   type ValidatingToolCall,
@@ -595,7 +594,6 @@ export class CoreToolScheduler {
           name: toolCall.request.name,
           args: toolCall.request.args,
         };
-
         const serverName =
           toolCall.tool instanceof DiscoveredMCPTool
             ? toolCall.tool.serverName
@@ -652,10 +650,9 @@ export class CoreToolScheduler {
             }
 
             // Fire Notification hook before showing confirmation to user
-            const messageBus = this.config.getMessageBus();
-            const hooksEnabled = this.config.getEnableHooks();
-            if (hooksEnabled && messageBus) {
-              await fireToolNotificationHook(messageBus, confirmationDetails);
+            const hookSystem = this.config.getHookSystem();
+            if (hookSystem) {
+              await hookSystem.fireToolNotificationEvent(confirmationDetails);
             }
 
             // Allow IDE to resolve confirmation
@@ -792,7 +789,7 @@ export class CoreToolScheduler {
     } else {
       // If the client provided new content, apply it and wait for
       // re-confirmation.
-      if (payload?.newContent && toolCall) {
+      if (payload && 'newContent' in payload && toolCall) {
         const result = await this.toolModifier.applyInlineModify(
           toolCall as WaitingToolCall,
           payload,

@@ -1847,6 +1847,83 @@ describe('CoreToolScheduler Sequential Execution', () => {
     modifyWithEditorSpy.mockRestore();
   });
 
+  it('should handle inline modify with empty new content', async () => {
+    // Mock the modifiable check to return true for this test
+    const isModifiableSpy = vi
+      .spyOn(modifiableToolModule, 'isModifiableDeclarativeTool')
+      .mockReturnValue(true);
+
+    const mockTool = new MockModifiableTool();
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getAllToolNames: () => [],
+    } as unknown as ToolRegistry;
+
+    const mockConfig = createMockConfig({
+      getToolRegistry: () => mockToolRegistry,
+      isInteractive: () => true,
+    });
+    mockConfig.getHookSystem = vi.fn().mockReturnValue(undefined);
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // Manually inject a waiting tool call
+    const callId = 'call-1';
+    const toolCall: WaitingToolCall = {
+      status: 'awaiting_approval',
+      request: {
+        callId,
+        name: 'mockModifiableTool',
+        args: {},
+        isClientInitiated: false,
+        prompt_id: 'p1',
+      },
+      tool: mockTool,
+      invocation: {} as unknown as ToolInvocation<
+        Record<string, unknown>,
+        ToolResult
+      >,
+      confirmationDetails: {
+        type: 'edit',
+        title: 'Confirm',
+        fileName: 'test.txt',
+        filePath: 'test.txt',
+        fileDiff: 'diff',
+        originalContent: 'old',
+        newContent: 'new',
+        onConfirm: async () => {},
+      },
+      startTime: Date.now(),
+    };
+
+    const schedulerInternals = scheduler as unknown as {
+      toolCalls: ToolCall[];
+      toolModifier: { applyInlineModify: Mock };
+    };
+    schedulerInternals.toolCalls = [toolCall];
+
+    const applyInlineModifySpy = vi
+      .spyOn(schedulerInternals.toolModifier, 'applyInlineModify')
+      .mockResolvedValue({
+        updatedParams: { content: '' },
+        updatedDiff: 'diff-empty',
+      });
+
+    await scheduler.handleConfirmationResponse(
+      callId,
+      async () => {},
+      ToolConfirmationOutcome.ProceedOnce,
+      new AbortController().signal,
+      { newContent: '' } as ToolConfirmationPayload,
+    );
+
+    expect(applyInlineModifySpy).toHaveBeenCalled();
+    isModifiableSpy.mockRestore();
+  });
+
   it('should pass serverName to policy engine for DiscoveredMCPTool', async () => {
     const mockMcpTool = {
       tool: async () => ({ functionDeclarations: [] }),
@@ -1889,6 +1966,7 @@ describe('CoreToolScheduler Sequential Execution', () => {
         }) as unknown as PolicyEngine,
       isInteractive: () => false,
     });
+    mockConfig.getHookSystem = vi.fn().mockReturnValue(undefined);
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -2018,6 +2096,7 @@ describe('CoreToolScheduler Sequential Execution', () => {
       getApprovalMode: () => ApprovalMode.YOLO,
       isInteractive: () => false,
     });
+    mockConfig.getHookSystem = vi.fn().mockReturnValue(undefined);
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -2105,6 +2184,7 @@ describe('CoreToolScheduler Sequential Execution', () => {
             check: async () => ({ decision: PolicyDecision.DENY }),
           }) as unknown as PolicyEngine,
       });
+      mockConfig.getHookSystem = vi.fn().mockReturnValue(undefined);
 
       const scheduler = new CoreToolScheduler({
         config: mockConfig,
