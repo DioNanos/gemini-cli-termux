@@ -25,6 +25,8 @@ export const ACTIVATE_SKILL_TOOL_NAME = 'activate_skill';
 export const EDIT_TOOL_NAMES = new Set([EDIT_TOOL_NAME, WRITE_FILE_TOOL_NAME]);
 export const ASK_USER_TOOL_NAME = 'ask_user';
 export const ASK_USER_DISPLAY_NAME = 'Ask User';
+export const TTS_NOTIFICATION_TOOL_NAME = 'tts_notification';
+export const TTS_NOTIFICATION_DISPLAY_NAME = 'TTS Notification';
 
 /** Prefix used for tools discovered via the toolDiscoveryCommand. */
 export const DISCOVERED_TOOL_PREFIX = 'discovered_tool_';
@@ -47,6 +49,7 @@ export const ALL_BUILTIN_TOOL_NAMES = [
   MEMORY_TOOL_NAME,
   ACTIVATE_SKILL_TOOL_NAME,
   ASK_USER_TOOL_NAME,
+  TTS_NOTIFICATION_TOOL_NAME,
 ] as const;
 
 /**

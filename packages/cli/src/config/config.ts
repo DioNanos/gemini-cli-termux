@@ -46,6 +46,27 @@ import {
   saveModelChange,
   loadSettings,
 } from './settings.js';
+import type { ContextMemoryOptions } from '@google/gemini-cli-core/src/utils/contextMemory.js';
+
+type MemoryMode = 'default' | 'jit' | 'jit+json';
+
+function resolveMemoryMode(settings: Settings): {
+  mode: MemoryMode;
+  isExplicit: boolean;
+} {
+  const mode = settings.memory?.mode as MemoryMode | undefined;
+  if (mode === 'default' || mode === 'jit' || mode === 'jit+json') {
+    return { mode, isExplicit: true };
+  }
+  if (settings.experimental?.jitContext) {
+    return { mode: 'jit', isExplicit: false };
+  }
+  return { mode: 'default', isExplicit: false };
+}
+
+function getContextMemorySettings(settings: Settings) {
+  return settings.memory?.contextMemory ?? settings.context?.contextMemory;
+}
 
 import { loadSandboxConfig } from './sandboxConfig.js';
 import { resolvePath } from '../utils/resolvePath.js';
@@ -475,6 +496,45 @@ export async function loadCliConfig(
 
   const experimentalJitContext = settings.experimental?.jitContext ?? false;
 
+  // Resolve Memory Mode and build ContextMemoryOptions
+  const { mode: memoryMode, isExplicit: memoryModeExplicit } =
+    resolveMemoryMode(settings);
+  const contextMemorySettings = getContextMemorySettings(settings);
+
+  const contextMemoryOptions: ContextMemoryOptions = {
+    enabled: contextMemorySettings?.enabled ?? true,
+    allowBaseWrite: contextMemorySettings?.allowBaseWrite ?? false,
+    primary: contextMemorySettings?.primary ?? 'gemini',
+    autoLoad: {
+      gemini: contextMemorySettings?.autoLoad?.gemini ?? true,
+      jsonBase: contextMemorySettings?.autoLoad?.jsonBase ?? true,
+      jsonUser: contextMemorySettings?.autoLoad?.jsonUser ?? true,
+    },
+    paths: {
+      base: contextMemorySettings?.paths?.base ?? '',
+      user: contextMemorySettings?.paths?.user ?? '',
+      journal: contextMemorySettings?.paths?.journal ?? '',
+    },
+    mcpImport: {
+      enabled: contextMemorySettings?.mcpImport?.enabled ?? false,
+      categories: contextMemorySettings?.mcpImport?.categories ?? [
+        'identity',
+        'infrastructure',
+        'projects',
+        'workflow',
+        'base',
+      ],
+      scope: contextMemorySettings?.mcpImport?.scope ?? 'global',
+    },
+  };
+
+  // Memory Mode: if mode is 'jit', disable JSON memory
+  if (memoryModeExplicit) {
+    contextMemoryOptions.enabled = memoryMode !== 'jit';
+  } else if (experimentalJitContext) {
+    contextMemoryOptions.enabled = false;
+  }
+
   let memoryContent = '';
   let fileCount = 0;
   let filePaths: string[] = [];
@@ -723,6 +783,7 @@ export async function loadCliConfig(
     userMemory: memoryContent,
     geminiMdFileCount: fileCount,
     geminiMdFilePaths: filePaths,
+    contextMemory: contextMemoryOptions,
     approvalMode,
     disableYoloMode:
       settings.security?.disableYoloMode || settings.admin?.secureModeEnabled,

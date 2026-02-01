@@ -153,23 +153,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
   ): Promise<ToolResult> {
     const strippedCommand = stripShellWrapper(this.params.command);
 
-    // Guard optional TTS notifications
-    if (
-      strippedCommand.includes('termux-tts-speak') &&
-      !this.config.isTtsEnabled()
-    ) {
-      const msg =
-        'TTS is disabled by settings (notifications.ttsEnabled = false).';
-      return {
-        llmContent: msg,
-        returnDisplay: msg,
-        error: {
-          message: msg,
-          type: ToolErrorType.POLICY_VIOLATION,
-        },
-      };
-    }
-
     if (signal.aborted) {
       return {
         llmContent: 'Command was cancelled by user before it could start.',
