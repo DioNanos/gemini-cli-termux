@@ -5,7 +5,7 @@ Android/Termux optimized fork of **Google Gemini CLI**
 
 - ✅ Tracks upstream regularly
 - ✅ Minimal, Termux-focused patches
-- ✅ Tested release: **v0.28.0-termux** (tag: `cf4a6ac20`)
+- ✅ Tested release: **v0.28.0-termux** (tag: `v0.28.0-termux`)
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
