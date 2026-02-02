@@ -46,6 +46,7 @@ import {
   saveModelChange,
   loadSettings,
 } from './settings.js';
+import { getDefaultContextMemoryOptions } from '@google/gemini-cli-core/src/utils/contextMemory.js';
 import type { ContextMemoryOptions } from '@google/gemini-cli-core/src/utils/contextMemory.js';
 
 type MemoryMode = 'default' | 'jit' | 'jit+json';
@@ -501,33 +502,56 @@ export async function loadCliConfig(
   const { mode: memoryMode, isExplicit: memoryModeExplicit } =
     resolveMemoryMode(settings);
   const contextMemorySettings = getContextMemorySettings(settings);
+  const defaultContextMemoryOptions = getDefaultContextMemoryOptions();
 
   const contextMemoryOptions: ContextMemoryOptions = {
-    enabled: contextMemorySettings?.enabled ?? true,
-    allowBaseWrite: contextMemorySettings?.allowBaseWrite ?? false,
-    primary: contextMemorySettings?.primary ?? 'gemini',
-    autoLoadGemini: contextMemorySettings?.autoLoadGemini ?? true,
-    autoLoadJsonBase: contextMemorySettings?.autoLoadJsonBase ?? true,
-    autoLoadJsonUser: contextMemorySettings?.autoLoadJsonUser ?? true,
-    maxEntries: contextMemorySettings?.maxEntries ?? 100,
-    maxChars: contextMemorySettings?.maxChars ?? 10000,
-    journalThreshold: contextMemorySettings?.journalThreshold ?? 1000,
-    journalMaxAgeDays: contextMemorySettings?.journalMaxAgeDays ?? 30,
+    enabled:
+      contextMemorySettings?.enabled ?? defaultContextMemoryOptions.enabled,
+    allowBaseWrite:
+      contextMemorySettings?.allowBaseWrite ??
+      defaultContextMemoryOptions.allowBaseWrite,
+    primary: contextMemorySettings?.primary ?? defaultContextMemoryOptions.primary,
+    autoLoadGemini:
+      contextMemorySettings?.autoLoadGemini ??
+      defaultContextMemoryOptions.autoLoadGemini,
+    autoLoadJsonBase:
+      contextMemorySettings?.autoLoadJsonBase ??
+      defaultContextMemoryOptions.autoLoadJsonBase,
+    autoLoadJsonUser:
+      contextMemorySettings?.autoLoadJsonUser ??
+      defaultContextMemoryOptions.autoLoadJsonUser,
+    maxEntries:
+      contextMemorySettings?.maxEntries ??
+      defaultContextMemoryOptions.maxEntries,
+    maxChars:
+      contextMemorySettings?.maxChars ?? defaultContextMemoryOptions.maxChars,
+    journalThreshold:
+      contextMemorySettings?.journalThreshold ??
+      defaultContextMemoryOptions.journalThreshold,
+    journalMaxAgeDays:
+      contextMemorySettings?.journalMaxAgeDays ??
+      defaultContextMemoryOptions.journalMaxAgeDays,
     paths: {
-      base: contextMemorySettings?.paths?.base ?? '',
-      user: contextMemorySettings?.paths?.user ?? '',
-      journal: contextMemorySettings?.paths?.journal ?? '',
+      base:
+        contextMemorySettings?.paths?.base ||
+        defaultContextMemoryOptions.paths.base,
+      user:
+        contextMemorySettings?.paths?.user ||
+        defaultContextMemoryOptions.paths.user,
+      journal:
+        contextMemorySettings?.paths?.journal ||
+        defaultContextMemoryOptions.paths.journal,
     },
     mcpImport: {
-      enabled: contextMemorySettings?.mcpImport?.enabled ?? false,
-      categories: contextMemorySettings?.mcpImport?.categories ?? [
-        'identity',
-        'infrastructure',
-        'projects',
-        'workflow',
-        'base',
-      ],
-      scope: contextMemorySettings?.mcpImport?.scope ?? 'global',
+      enabled:
+        contextMemorySettings?.mcpImport?.enabled ??
+        defaultContextMemoryOptions.mcpImport.enabled,
+      categories:
+        contextMemorySettings?.mcpImport?.categories ??
+        defaultContextMemoryOptions.mcpImport.categories,
+      scope:
+        contextMemorySettings?.mcpImport?.scope ??
+        defaultContextMemoryOptions.mcpImport.scope,
     },
   };
 

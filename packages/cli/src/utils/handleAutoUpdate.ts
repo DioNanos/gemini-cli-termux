@@ -37,6 +37,7 @@ export async function handleAutoUpdate(
   const installationInfo = getInstallationInfo(
     projectRoot,
     settings.merged.general.enableAutoUpdate,
+    info.update.name,
   );
 
   if (
