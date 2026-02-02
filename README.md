@@ -181,7 +181,9 @@ See `docs/TERMUX.md` for Termux-specific documentation.
 
 ## Known differences vs upstream (v0.28.0-termux)
 
-From the latest test report (Linux x86_64):
+From the latest test reports:
+
+**Linux x86_64 (VPS1):**
 
 - `gemini extensions settings` works, may appear as `config` in some versions
 - `auth` / `logout` are functional but may not appear in the top-level help
@@ -193,9 +195,17 @@ From the latest test report (Linux x86_64):
   `termux-tts-speak` enabled by default
 - **googleSearch tool**: ✅ **Fixed** - works without external dependencies
 
-Full report:
+**Termux ARM64 (Android):**
+
+- **Context Memory**: ⚠️ init `ENOENT` on empty path; files exist
+- **Agent TOML**: ❌ loader file not found (source older than test suite)
+- **PTY**: ✅ loaded correctly
+- **Termux-API**: ✅ detection & discovery OK
+
+Full reports:
 
 - [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
+- [GEMINI_TEST_REPORT_v0.28.0-termux.md](./GEMINI_TEST_REPORT_v0.28.0-termux.md)
 
 ---
 
@@ -204,6 +214,7 @@ Full report:
 - **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
 - **Test Report (latest)**:
   [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
+  [GEMINI_TEST_REPORT_v0.28.0-termux.md](./GEMINI_TEST_REPORT_v0.28.0-termux.md)
 - **Context Memory**: `docs/cli/context-memory.md`
 - **Termux-specific docs**: `docs/TERMUX.md`
 
