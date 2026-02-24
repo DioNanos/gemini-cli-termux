@@ -94,7 +94,6 @@ const setupMocks = ({
 describe('useCommandCompletion', () => {
   const mockCommandContext = {} as CommandContext;
   const mockConfig = {
-    getEnablePromptCompletion: () => false,
     getGeminiClient: vi.fn(),
   } as unknown as Config;
   const testRootDir = '/';
@@ -105,7 +104,6 @@ describe('useCommandCompletion', () => {
       initialText: text,
       initialCursorOffset: cursorOffset ?? text.length,
       viewport: { width: 80, height: 20 },
-      isValidPath: () => false,
       onChange: () => {},
     });
   }
@@ -114,6 +112,7 @@ describe('useCommandCompletion', () => {
     initialText: string,
     cursorOffset?: number,
     shellModeActive = false,
+    active = true,
   ) => {
     let hookResult: ReturnType<typeof useCommandCompletion> & {
       textBuffer: ReturnType<typeof useTextBuffer>;
@@ -121,15 +120,16 @@ describe('useCommandCompletion', () => {
 
     function TestComponent() {
       const textBuffer = useTextBufferForTest(initialText, cursorOffset);
-      const completion = useCommandCompletion(
-        textBuffer,
-        testRootDir,
-        [],
-        mockCommandContext,
-        false,
+      const completion = useCommandCompletion({
+        buffer: textBuffer,
+        cwd: testRootDir,
+        slashCommands: [],
+        commandContext: mockCommandContext,
+        reverseSearchActive: false,
         shellModeActive,
-        mockConfig,
-      );
+        config: mockConfig,
+        active,
+      });
       hookResult = { ...completion, textBuffer };
       return null;
     }
@@ -197,7 +197,6 @@ describe('useCommandCompletion', () => {
 
         act(() => {
           result.current.setActiveSuggestionIndex(5);
-          result.current.setShowSuggestions(true);
         });
 
         act(() => {
@@ -499,7 +498,6 @@ describe('useCommandCompletion', () => {
   describe('prompt completion filtering', () => {
     it('should not trigger prompt completion for line comments', async () => {
       const mockConfig = {
-        getEnablePromptCompletion: () => true,
         getGeminiClient: vi.fn(),
       } as unknown as Config;
 
@@ -509,27 +507,29 @@ describe('useCommandCompletion', () => {
 
       function TestComponent() {
         const textBuffer = useTextBufferForTest('// This is a line comment');
-        const completion = useCommandCompletion(
-          textBuffer,
-          testRootDir,
-          [],
-          mockCommandContext,
-          false,
-          false,
-          mockConfig,
-        );
+        const completion = useCommandCompletion({
+          buffer: textBuffer,
+          cwd: testRootDir,
+          slashCommands: [],
+          commandContext: mockCommandContext,
+          reverseSearchActive: false,
+          shellModeActive: false,
+          config: mockConfig,
+          active: true,
+        });
         hookResult = { ...completion, textBuffer };
         return null;
       }
       renderWithProviders(<TestComponent />);
 
       // Should not trigger prompt completion for comments
-      expect(hookResult!.suggestions.length).toBe(0);
+      await waitFor(() => {
+        expect(hookResult!.suggestions.length).toBe(0);
+      });
     });
 
     it('should not trigger prompt completion for block comments', async () => {
       const mockConfig = {
-        getEnablePromptCompletion: () => true,
         getGeminiClient: vi.fn(),
       } as unknown as Config;
 
@@ -541,27 +541,29 @@ describe('useCommandCompletion', () => {
         const textBuffer = useTextBufferForTest(
           '/* This is a block comment */',
         );
-        const completion = useCommandCompletion(
-          textBuffer,
-          testRootDir,
-          [],
-          mockCommandContext,
-          false,
-          false,
-          mockConfig,
-        );
+        const completion = useCommandCompletion({
+          buffer: textBuffer,
+          cwd: testRootDir,
+          slashCommands: [],
+          commandContext: mockCommandContext,
+          reverseSearchActive: false,
+          shellModeActive: false,
+          config: mockConfig,
+          active: true,
+        });
         hookResult = { ...completion, textBuffer };
         return null;
       }
       renderWithProviders(<TestComponent />);
 
       // Should not trigger prompt completion for comments
-      expect(hookResult!.suggestions.length).toBe(0);
+      await waitFor(() => {
+        expect(hookResult!.suggestions.length).toBe(0);
+      });
     });
 
     it('should trigger prompt completion for regular text when enabled', async () => {
       const mockConfig = {
-        getEnablePromptCompletion: () => true,
         getGeminiClient: vi.fn(),
       } as unknown as Config;
 
@@ -573,24 +575,27 @@ describe('useCommandCompletion', () => {
         const textBuffer = useTextBufferForTest(
           'This is regular text that should trigger completion',
         );
-        const completion = useCommandCompletion(
-          textBuffer,
-          testRootDir,
-          [],
-          mockCommandContext,
-          false,
-          false,
-          mockConfig,
-        );
+        const completion = useCommandCompletion({
+          buffer: textBuffer,
+          cwd: testRootDir,
+          slashCommands: [],
+          commandContext: mockCommandContext,
+          reverseSearchActive: false,
+          shellModeActive: false,
+          config: mockConfig,
+          active: true,
+        });
         hookResult = { ...completion, textBuffer };
         return null;
       }
       renderWithProviders(<TestComponent />);
 
       // This test verifies that comments are filtered out while regular text is not
-      expect(hookResult!.textBuffer.text).toBe(
-        'This is regular text that should trigger completion',
-      );
+      await waitFor(() => {
+        expect(hookResult!.textBuffer.text).toBe(
+          'This is regular text that should trigger completion',
+        );
+      });
     });
   });
 

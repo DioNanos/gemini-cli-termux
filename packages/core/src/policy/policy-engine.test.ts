@@ -13,6 +13,7 @@ import {
   type SafetyCheckerRule,
   InProcessCheckerType,
   ApprovalMode,
+  PRIORITY_SUBAGENT_TOOL,
 } from './types.js';
 import type { FunctionCall } from '@google/genai';
 import { SafetyCheckDecision } from '../safety/protocol.js';
@@ -40,6 +41,43 @@ vi.mock('../utils/shell-utils.js', async (importOriginal) => {
         // Simple mock: true if '>' is present, unless it looks like "-> arrow"
         command.includes('>') && !command.includes('-> arrow'),
     ),
+  };
+});
+
+// Mock tool-names to provide a consistent alias for testing
+
+vi.mock('../tools/tool-names.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../tools/tool-names.js')>();
+
+  const mockedAliases: Record<string, string> = {
+    ...actual.TOOL_LEGACY_ALIASES,
+
+    legacy_test_tool: 'current_test_tool',
+
+    another_legacy_test_tool: 'current_test_tool',
+  };
+
+  return {
+    ...actual,
+
+    TOOL_LEGACY_ALIASES: mockedAliases,
+
+    getToolAliases: vi.fn().mockImplementation((name: string) => {
+      const aliases = new Set<string>([name]);
+
+      const canonicalName = mockedAliases[name] ?? name;
+
+      aliases.add(canonicalName);
+
+      for (const [legacyName, currentName] of Object.entries(mockedAliases)) {
+        if (currentName === canonicalName) {
+          aliases.add(legacyName);
+        }
+      }
+
+      return Array.from(aliases);
+    }),
   };
 });
 
@@ -185,6 +223,52 @@ describe('PolicyEngine', () => {
       expect((await engine.check({ name: 'shell' }, undefined)).decision).toBe(
         PolicyDecision.ALLOW,
       );
+    });
+
+    it('should match current tool call against legacy tool name rules', async () => {
+      const legacyName = 'legacy_test_tool';
+      const currentName = 'current_test_tool';
+
+      const rules: PolicyRule[] = [
+        { toolName: legacyName, decision: PolicyDecision.DENY },
+      ];
+
+      engine = new PolicyEngine({ rules });
+
+      // Call using the CURRENT name, should be denied because of legacy rule
+      const { decision } = await engine.check({ name: currentName }, undefined);
+      expect(decision).toBe(PolicyDecision.DENY);
+    });
+
+    it('should match legacy tool call against current tool name rules (for skills support)', async () => {
+      const legacyName = 'legacy_test_tool';
+      const currentName = 'current_test_tool';
+
+      const rules: PolicyRule[] = [
+        { toolName: currentName, decision: PolicyDecision.ALLOW },
+      ];
+
+      engine = new PolicyEngine({ rules });
+
+      // Call using the LEGACY name (from a skill), should be allowed because of current rule
+      const { decision } = await engine.check({ name: legacyName }, undefined);
+      expect(decision).toBe(PolicyDecision.ALLOW);
+    });
+
+    it('should match tool call using one legacy name against policy for another legacy name (same canonical tool)', async () => {
+      const legacyName1 = 'legacy_test_tool';
+      const legacyName2 = 'another_legacy_test_tool';
+
+      const rules: PolicyRule[] = [
+        { toolName: legacyName2, decision: PolicyDecision.DENY },
+      ];
+
+      engine = new PolicyEngine({ rules });
+
+      // Call using legacyName1, should be denied because legacyName2 has a deny rule
+      // and they both point to the same canonical tool.
+      const { decision } = await engine.check({ name: legacyName1 }, undefined);
+      expect(decision).toBe(PolicyDecision.DENY);
     });
 
     it('should apply wildcard rules (no toolName)', async () => {
@@ -347,6 +431,63 @@ describe('PolicyEngine', () => {
   });
 
   describe('MCP server wildcard patterns', () => {
+    it('should match global wildcard (*)', async () => {
+      engine = new PolicyEngine({
+        rules: [
+          { toolName: '*', decision: PolicyDecision.ALLOW, priority: 10 },
+        ],
+      });
+
+      expect(
+        (await engine.check({ name: 'read_file' }, undefined)).decision,
+      ).toBe(PolicyDecision.ALLOW);
+      expect(
+        (await engine.check({ name: 'my-server__tool' }, 'my-server')).decision,
+      ).toBe(PolicyDecision.ALLOW);
+    });
+
+    it('should match any MCP tool when toolName is *__*', async () => {
+      engine = new PolicyEngine({
+        rules: [
+          { toolName: '*__*', decision: PolicyDecision.ALLOW, priority: 10 },
+        ],
+        defaultDecision: PolicyDecision.DENY,
+      });
+
+      expect((await engine.check({ name: 'mcp__tool' }, 'mcp')).decision).toBe(
+        PolicyDecision.ALLOW,
+      );
+      expect(
+        (await engine.check({ name: 'other__tool' }, 'other')).decision,
+      ).toBe(PolicyDecision.ALLOW);
+      expect(
+        (await engine.check({ name: 'read_file' }, undefined)).decision,
+      ).toBe(PolicyDecision.DENY);
+    });
+
+    it('should match specific tool across all servers when using *__tool', async () => {
+      engine = new PolicyEngine({
+        rules: [
+          {
+            toolName: '*__search',
+            decision: PolicyDecision.ALLOW,
+            priority: 10,
+          },
+        ],
+        defaultDecision: PolicyDecision.DENY,
+      });
+
+      expect((await engine.check({ name: 'ws__search' }, 'ws')).decision).toBe(
+        PolicyDecision.ALLOW,
+      );
+      expect((await engine.check({ name: 'gh__search' }, 'gh')).decision).toBe(
+        PolicyDecision.ALLOW,
+      );
+      expect((await engine.check({ name: 'gh__list' }, 'gh')).decision).toBe(
+        PolicyDecision.DENY,
+      );
+    });
+
     it('should match MCP server wildcard patterns', async () => {
       const rules: PolicyRule[] = [
         {
@@ -365,26 +506,35 @@ describe('PolicyEngine', () => {
 
       // Should match my-server tools
       expect(
-        (await engine.check({ name: 'my-server__tool1' }, undefined)).decision,
+        (await engine.check({ name: 'my-server__tool1' }, 'my-server'))
+          .decision,
       ).toBe(PolicyDecision.ALLOW);
       expect(
-        (await engine.check({ name: 'my-server__another_tool' }, undefined))
+        (await engine.check({ name: 'my-server__another_tool' }, 'my-server'))
           .decision,
       ).toBe(PolicyDecision.ALLOW);
 
       // Should match blocked-server tools
       expect(
-        (await engine.check({ name: 'blocked-server__tool1' }, undefined))
-          .decision,
+        (
+          await engine.check(
+            { name: 'blocked-server__tool1' },
+            'blocked-server',
+          )
+        ).decision,
       ).toBe(PolicyDecision.DENY);
       expect(
-        (await engine.check({ name: 'blocked-server__dangerous' }, undefined))
-          .decision,
+        (
+          await engine.check(
+            { name: 'blocked-server__dangerous' },
+            'blocked-server',
+          )
+        ).decision,
       ).toBe(PolicyDecision.DENY);
 
       // Should not match other patterns
       expect(
-        (await engine.check({ name: 'other-server__tool' }, undefined))
+        (await engine.check({ name: 'other-server__tool' }, 'other-server'))
           .decision,
       ).toBe(PolicyDecision.ASK_USER);
       expect(
@@ -413,11 +563,11 @@ describe('PolicyEngine', () => {
 
       // Specific tool deny should override server allow
       expect(
-        (await engine.check({ name: 'my-server__dangerous-tool' }, undefined))
+        (await engine.check({ name: 'my-server__dangerous-tool' }, 'my-server'))
           .decision,
       ).toBe(PolicyDecision.DENY);
       expect(
-        (await engine.check({ name: 'my-server__safe-tool' }, undefined))
+        (await engine.check({ name: 'my-server__safe-tool' }, 'my-server'))
           .decision,
       ).toBe(PolicyDecision.ALLOW);
     });
@@ -1398,6 +1548,37 @@ describe('PolicyEngine', () => {
     });
   });
 
+  describe('Plan Mode vs Subagent Priority (Regression)', () => {
+    it('should DENY subagents in Plan Mode despite dynamic allow rules', async () => {
+      // Plan Mode Deny (1.06) > Subagent Allow (1.05)
+
+      const fixedRules: PolicyRule[] = [
+        {
+          decision: PolicyDecision.DENY,
+          priority: 1.06,
+          modes: [ApprovalMode.PLAN],
+        },
+        {
+          toolName: 'codebase_investigator',
+          decision: PolicyDecision.ALLOW,
+          priority: PRIORITY_SUBAGENT_TOOL,
+        },
+      ];
+
+      const fixedEngine = new PolicyEngine({
+        rules: fixedRules,
+        approvalMode: ApprovalMode.PLAN,
+      });
+
+      const fixedResult = await fixedEngine.check(
+        { name: 'codebase_investigator' },
+        undefined,
+      );
+
+      expect(fixedResult.decision).toBe(PolicyDecision.DENY);
+    });
+  });
+
   describe('shell command parsing failure', () => {
     it('should return ALLOW in YOLO mode even if shell command parsing fails', async () => {
       const { splitCommands } = await import('../utils/shell-utils.js');
@@ -1913,6 +2094,531 @@ describe('PolicyEngine', () => {
 
       const result = await engine.check({ name: 'tool' }, undefined);
       expect(result.decision).toBe(PolicyDecision.DENY);
+    });
+  });
+
+  describe('getExcludedTools', () => {
+    interface TestCase {
+      name: string;
+      rules: PolicyRule[];
+      approvalMode?: ApprovalMode;
+      nonInteractive?: boolean;
+      expected: string[];
+    }
+
+    const testCases: TestCase[] = [
+      {
+        name: 'should return empty set when no rules provided',
+        rules: [],
+        expected: [],
+      },
+      {
+        name: 'should apply rules without explicit modes to all modes',
+        rules: [{ toolName: 'tool1', decision: PolicyDecision.DENY }],
+        expected: ['tool1'],
+      },
+      {
+        name: 'should NOT exclude tool if higher priority argsPattern rule exists',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.ALLOW,
+            argsPattern: /safe/,
+            priority: 100,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: [],
+      },
+      {
+        name: 'should include tools with DENY decision',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'tool2',
+            decision: PolicyDecision.ALLOW,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: ['tool1'],
+      },
+      {
+        name: 'should respect priority and ignore lower priority rules (DENY wins)',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            priority: 100,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.ALLOW,
+            priority: 10,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: ['tool1'],
+      },
+      {
+        name: 'should respect priority and ignore lower priority rules (ALLOW wins)',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.ALLOW,
+            priority: 100,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: [],
+      },
+      {
+        name: 'should NOT include ASK_USER tools even in non-interactive mode',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.ASK_USER,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        nonInteractive: true,
+        expected: [],
+      },
+      {
+        name: 'should ignore rules with argsPattern',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            argsPattern: /something/,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: [],
+      },
+      {
+        name: 'should respect approval mode (PLAN mode)',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            modes: [ApprovalMode.PLAN],
+          },
+        ],
+        approvalMode: ApprovalMode.PLAN,
+        expected: ['tool1'],
+      },
+      {
+        name: 'should respect approval mode (DEFAULT mode)',
+        rules: [
+          {
+            toolName: 'tool1',
+            decision: PolicyDecision.DENY,
+            modes: [ApprovalMode.PLAN],
+          },
+        ],
+        approvalMode: ApprovalMode.DEFAULT,
+        expected: [],
+      },
+      {
+        name: 'should respect wildcard ALLOW rules (e.g. YOLO mode)',
+        rules: [
+          {
+            decision: PolicyDecision.ALLOW,
+            priority: 999,
+            modes: [ApprovalMode.YOLO],
+          },
+          {
+            toolName: 'dangerous-tool',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+            modes: [ApprovalMode.YOLO],
+          },
+        ],
+        approvalMode: ApprovalMode.YOLO,
+        expected: [],
+      },
+      {
+        name: 'should respect server wildcard DENY',
+        rules: [
+          {
+            toolName: 'server__*',
+            decision: PolicyDecision.DENY,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: ['server__*'],
+      },
+      {
+        name: 'should expand server wildcard for specific tools if already processed',
+        rules: [
+          {
+            toolName: 'server__*',
+            decision: PolicyDecision.DENY,
+            priority: 100,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'server__tool1',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: ['server__*', 'server__tool1'],
+      },
+      {
+        name: 'should exclude run_shell_command but NOT write_file in simulated Plan Mode',
+        approvalMode: ApprovalMode.PLAN,
+        rules: [
+          {
+            // Simulates the high-priority allow for plans directory
+            toolName: 'write_file',
+            decision: PolicyDecision.ALLOW,
+            priority: 70,
+            argsPattern: /plans/,
+            modes: [ApprovalMode.PLAN],
+          },
+          {
+            // Simulates the global deny in Plan Mode
+            decision: PolicyDecision.DENY,
+            priority: 60,
+            modes: [ApprovalMode.PLAN],
+          },
+          {
+            // Simulates a tool from another policy (e.g. write.toml)
+            toolName: 'run_shell_command',
+            decision: PolicyDecision.ASK_USER,
+            priority: 10,
+          },
+        ],
+        expected: ['run_shell_command'],
+      },
+      {
+        name: 'should NOT exclude tool if covered by a higher priority wildcard ALLOW',
+        rules: [
+          {
+            toolName: 'server__*',
+            decision: PolicyDecision.ALLOW,
+            priority: 100,
+            modes: [ApprovalMode.DEFAULT],
+          },
+          {
+            toolName: 'server__tool1',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+            modes: [ApprovalMode.DEFAULT],
+          },
+        ],
+        expected: [],
+      },
+      {
+        name: 'should handle global wildcard * in getExcludedTools',
+        rules: [
+          {
+            toolName: '*',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+          },
+        ],
+        expected: ['*'],
+      },
+      {
+        name: 'should handle MCP category wildcard *__* in getExcludedTools',
+        rules: [
+          {
+            toolName: '*__*',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+          },
+        ],
+        expected: ['*__*'],
+      },
+      {
+        name: 'should handle tool wildcard *__search in getExcludedTools',
+        rules: [
+          {
+            toolName: '*__search',
+            decision: PolicyDecision.DENY,
+            priority: 10,
+          },
+        ],
+        expected: ['*__search'],
+      },
+    ];
+
+    it.each(testCases)(
+      '$name',
+      ({ rules, approvalMode, nonInteractive, expected }) => {
+        engine = new PolicyEngine({
+          rules,
+          approvalMode: approvalMode ?? ApprovalMode.DEFAULT,
+          nonInteractive: nonInteractive ?? false,
+        });
+        const excluded = engine.getExcludedTools();
+        expect(Array.from(excluded).sort()).toEqual(expected.sort());
+      },
+    );
+  });
+
+  describe('YOLO mode with ask_user tool', () => {
+    it('should return ASK_USER for ask_user tool even in YOLO mode', async () => {
+      const rules: PolicyRule[] = [
+        {
+          toolName: 'ask_user',
+          decision: PolicyDecision.ASK_USER,
+          priority: 999,
+          modes: [ApprovalMode.YOLO],
+        },
+        {
+          decision: PolicyDecision.ALLOW,
+          priority: 998,
+          modes: [ApprovalMode.YOLO],
+        },
+      ];
+
+      engine = new PolicyEngine({
+        rules,
+        approvalMode: ApprovalMode.YOLO,
+      });
+
+      const result = await engine.check(
+        { name: 'ask_user', args: {} },
+        undefined,
+      );
+      expect(result.decision).toBe(PolicyDecision.ASK_USER);
+    });
+
+    it('should return ALLOW for other tools in YOLO mode', async () => {
+      const rules: PolicyRule[] = [
+        {
+          toolName: 'ask_user',
+          decision: PolicyDecision.ASK_USER,
+          priority: 999,
+          modes: [ApprovalMode.YOLO],
+        },
+        {
+          decision: PolicyDecision.ALLOW,
+          priority: 998,
+          modes: [ApprovalMode.YOLO],
+        },
+      ];
+
+      engine = new PolicyEngine({
+        rules,
+        approvalMode: ApprovalMode.YOLO,
+      });
+
+      const result = await engine.check(
+        { name: 'run_shell_command', args: { command: 'ls' } },
+        undefined,
+      );
+      expect(result.decision).toBe(PolicyDecision.ALLOW);
+    });
+  });
+
+  describe('Plan Mode', () => {
+    it('should allow activate_skill but deny shell commands in Plan Mode', async () => {
+      const rules: PolicyRule[] = [
+        {
+          decision: PolicyDecision.DENY,
+          priority: 60,
+          modes: [ApprovalMode.PLAN],
+          denyMessage:
+            'You are in Plan Mode with access to read-only tools. Execution of scripts (including those from skills) is blocked.',
+        },
+        {
+          toolName: 'activate_skill',
+          decision: PolicyDecision.ALLOW,
+          priority: 70,
+          modes: [ApprovalMode.PLAN],
+        },
+      ];
+
+      engine = new PolicyEngine({
+        rules,
+        approvalMode: ApprovalMode.PLAN,
+      });
+
+      const skillResult = await engine.check(
+        { name: 'activate_skill', args: { name: 'test' } },
+        undefined,
+      );
+      expect(skillResult.decision).toBe(PolicyDecision.ALLOW);
+
+      const shellResult = await engine.check(
+        { name: 'run_shell_command', args: { command: 'ls' } },
+        undefined,
+      );
+      expect(shellResult.decision).toBe(PolicyDecision.DENY);
+      expect(shellResult.rule?.denyMessage).toContain(
+        'Execution of scripts (including those from skills) is blocked',
+      );
+    });
+  });
+
+  describe('removeRulesByTier', () => {
+    it('should remove rules matching a specific tier', () => {
+      engine.addRule({
+        toolName: 'rule1',
+        decision: PolicyDecision.ALLOW,
+        priority: 1.1,
+      });
+      engine.addRule({
+        toolName: 'rule2',
+        decision: PolicyDecision.ALLOW,
+        priority: 1.5,
+      });
+      engine.addRule({
+        toolName: 'rule3',
+        decision: PolicyDecision.ALLOW,
+        priority: 2.1,
+      });
+      engine.addRule({
+        toolName: 'rule4',
+        decision: PolicyDecision.ALLOW,
+        priority: 0.5,
+      });
+      engine.addRule({ toolName: 'rule5', decision: PolicyDecision.ALLOW }); // priority undefined -> 0
+
+      expect(engine.getRules()).toHaveLength(5);
+
+      engine.removeRulesByTier(1);
+
+      const rules = engine.getRules();
+      expect(rules).toHaveLength(3);
+      expect(rules.some((r) => r.toolName === 'rule1')).toBe(false);
+      expect(rules.some((r) => r.toolName === 'rule2')).toBe(false);
+      expect(rules.some((r) => r.toolName === 'rule3')).toBe(true);
+      expect(rules.some((r) => r.toolName === 'rule4')).toBe(true);
+      expect(rules.some((r) => r.toolName === 'rule5')).toBe(true);
+    });
+
+    it('should handle removing tier 0 rules (including undefined priority)', () => {
+      engine.addRule({
+        toolName: 'rule1',
+        decision: PolicyDecision.ALLOW,
+        priority: 0.5,
+      });
+      engine.addRule({ toolName: 'rule2', decision: PolicyDecision.ALLOW }); // defaults to 0
+      engine.addRule({
+        toolName: 'rule3',
+        decision: PolicyDecision.ALLOW,
+        priority: 1.5,
+      });
+
+      expect(engine.getRules()).toHaveLength(3);
+
+      engine.removeRulesByTier(0);
+
+      const rules = engine.getRules();
+      expect(rules).toHaveLength(1);
+      expect(rules[0].toolName).toBe('rule3');
+    });
+  });
+
+  describe('removeCheckersByTier', () => {
+    it('should remove checkers matching a specific tier', () => {
+      engine.addChecker({
+        checker: { type: 'external', name: 'c1' },
+        priority: 1.1,
+      });
+      engine.addChecker({
+        checker: { type: 'external', name: 'c2' },
+        priority: 1.9,
+      });
+      engine.addChecker({
+        checker: { type: 'external', name: 'c3' },
+        priority: 2.5,
+      });
+
+      expect(engine.getCheckers()).toHaveLength(3);
+
+      engine.removeCheckersByTier(1);
+
+      const checkers = engine.getCheckers();
+      expect(checkers).toHaveLength(1);
+      expect(checkers[0].priority).toBe(2.5);
+    });
+  });
+
+  describe('Tool Annotations', () => {
+    it('should match tools by semantic annotations', async () => {
+      engine = new PolicyEngine({
+        rules: [
+          {
+            toolAnnotations: { readOnlyHint: true },
+            decision: PolicyDecision.ALLOW,
+            priority: 10,
+          },
+        ],
+        defaultDecision: PolicyDecision.DENY,
+      });
+
+      const readOnlyTool = { name: 'read', args: {} };
+      const readOnlyMeta = { readOnlyHint: true, extra: 'info' };
+
+      const writeTool = { name: 'write', args: {} };
+      const writeMeta = { readOnlyHint: false };
+
+      expect(
+        (await engine.check(readOnlyTool, undefined, readOnlyMeta)).decision,
+      ).toBe(PolicyDecision.ALLOW);
+      expect(
+        (await engine.check(writeTool, undefined, writeMeta)).decision,
+      ).toBe(PolicyDecision.DENY);
+      expect((await engine.check(writeTool, undefined, {})).decision).toBe(
+        PolicyDecision.DENY,
+      );
+    });
+
+    it('should support scoped annotation rules', async () => {
+      engine = new PolicyEngine({
+        rules: [
+          {
+            toolName: '*__*',
+            toolAnnotations: { experimental: true },
+            decision: PolicyDecision.DENY,
+            priority: 20,
+          },
+          {
+            toolName: '*__*',
+            decision: PolicyDecision.ALLOW,
+            priority: 10,
+          },
+        ],
+      });
+
+      expect(
+        (
+          await engine.check({ name: 'mcp__test' }, 'mcp', {
+            experimental: true,
+          })
+        ).decision,
+      ).toBe(PolicyDecision.DENY);
+      expect(
+        (
+          await engine.check({ name: 'mcp__stable' }, 'mcp', {
+            experimental: false,
+          })
+        ).decision,
+      ).toBe(PolicyDecision.ALLOW);
     });
   });
 });

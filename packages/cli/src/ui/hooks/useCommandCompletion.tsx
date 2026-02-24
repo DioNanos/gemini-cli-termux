@@ -36,7 +36,6 @@ export interface UseCommandCompletionReturn {
   isLoadingSuggestions: boolean;
   isPerfectMatch: boolean;
   setActiveSuggestionIndex: React.Dispatch<React.SetStateAction<number>>;
-  setShowSuggestions: React.Dispatch<React.SetStateAction<boolean>>;
   resetCompletionState: () => void;
   navigateUp: () => void;
   navigateDown: () => void;
@@ -58,25 +57,35 @@ export interface UseCommandCompletionReturn {
   completionMode: CompletionMode;
 }
 
-export function useCommandCompletion(
-  buffer: TextBuffer,
-  cwd: string,
-  slashCommands: readonly SlashCommand[],
-  commandContext: CommandContext,
-  reverseSearchActive: boolean = false,
-  shellModeActive: boolean,
-  config?: Config,
-): UseCommandCompletionReturn {
+export interface UseCommandCompletionOptions {
+  buffer: TextBuffer;
+  cwd: string;
+  slashCommands: readonly SlashCommand[];
+  commandContext: CommandContext;
+  reverseSearchActive?: boolean;
+  shellModeActive: boolean;
+  config?: Config;
+  active: boolean;
+}
+
+export function useCommandCompletion({
+  buffer,
+  cwd,
+  slashCommands,
+  commandContext,
+  reverseSearchActive = false,
+  shellModeActive,
+  config,
+  active,
+}: UseCommandCompletionOptions): UseCommandCompletionReturn {
   const {
     suggestions,
     activeSuggestionIndex,
     visibleStartIndex,
-    showSuggestions,
     isLoadingSuggestions,
     isPerfectMatch,
 
     setSuggestions,
-    setShowSuggestions,
     setActiveSuggestionIndex,
     setIsLoadingSuggestions,
     setIsPerfectMatch,
@@ -147,9 +156,7 @@ export function useCommandCompletion(
 
       // Check for prompt completion - only if enabled
       const trimmedText = buffer.text.trim();
-      const isPromptCompletionEnabled =
-        config?.getEnablePromptCompletion() ?? false;
-
+      const isPromptCompletionEnabled = false;
       if (
         isPromptCompletionEnabled &&
         trimmedText.length >= PROMPT_COMPLETION_MIN_LENGTH &&
@@ -170,10 +177,10 @@ export function useCommandCompletion(
         completionStart: -1,
         completionEnd: -1,
       };
-    }, [cursorRow, cursorCol, buffer.lines, buffer.text, config]);
+    }, [cursorRow, cursorCol, buffer.lines, buffer.text]);
 
   useAtCompletion({
-    enabled: completionMode === CompletionMode.AT,
+    enabled: active && completionMode === CompletionMode.AT,
     pattern: query || '',
     config,
     cwd,
@@ -182,7 +189,8 @@ export function useCommandCompletion(
   });
 
   const slashCompletionRange = useSlashCompletion({
-    enabled: completionMode === CompletionMode.SLASH && !shellModeActive,
+    enabled:
+      active && completionMode === CompletionMode.SLASH && !shellModeActive,
     query,
     slashCommands,
     commandContext,
@@ -194,29 +202,45 @@ export function useCommandCompletion(
   const promptCompletion = usePromptCompletion({
     buffer,
     config,
-    enabled: completionMode === CompletionMode.PROMPT,
   });
 
   useEffect(() => {
     setActiveSuggestionIndex(suggestions.length > 0 ? 0 : -1);
     setVisibleStartIndex(0);
-  }, [suggestions, setActiveSuggestionIndex, setVisibleStartIndex]);
+
+    // Generic perfect match detection for non-slash modes or as a fallback
+    if (completionMode !== CompletionMode.SLASH) {
+      if (suggestions.length > 0) {
+        const firstSuggestion = suggestions[0];
+        setIsPerfectMatch(firstSuggestion.value === query);
+      } else {
+        setIsPerfectMatch(false);
+      }
+    }
+  }, [
+    suggestions,
+    setActiveSuggestionIndex,
+    setVisibleStartIndex,
+    completionMode,
+    query,
+    setIsPerfectMatch,
+  ]);
 
   useEffect(() => {
-    if (completionMode === CompletionMode.IDLE || reverseSearchActive) {
+    if (
+      !active ||
+      completionMode === CompletionMode.IDLE ||
+      reverseSearchActive
+    ) {
       resetCompletionState();
-      return;
     }
-    // Show suggestions if we are loading OR if there are results to display.
-    setShowSuggestions(isLoadingSuggestions || suggestions.length > 0);
-  }, [
-    completionMode,
-    suggestions.length,
-    isLoadingSuggestions,
-    reverseSearchActive,
-    resetCompletionState,
-    setShowSuggestions,
-  ]);
+  }, [active, completionMode, reverseSearchActive, resetCompletionState]);
+
+  const showSuggestions =
+    active &&
+    completionMode !== CompletionMode.IDLE &&
+    !reverseSearchActive &&
+    (isLoadingSuggestions || suggestions.length > 0);
 
   /**
    * Gets the completed text by replacing the completion range with the suggestion value.
@@ -333,7 +357,6 @@ export function useCommandCompletion(
     isLoadingSuggestions,
     isPerfectMatch,
     setActiveSuggestionIndex,
-    setShowSuggestions,
     resetCompletionState,
     navigateUp,
     navigateDown,

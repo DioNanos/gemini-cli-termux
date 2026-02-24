@@ -11,7 +11,6 @@ import {
   Kind,
   ToolConfirmationOutcome,
 } from './tools.js';
-import type { FunctionDeclaration } from '@google/genai';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { Storage } from '../config/storage.js';
@@ -25,71 +24,17 @@ import type {
 import { ToolErrorType } from './tool-error.js';
 import { MEMORY_TOOL_NAME } from './tool-names.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
+import { MEMORY_DEFINITION } from './definitions/coreTools.js';
+import { resolveToolDeclaration } from './definitions/resolver.js';
+// TERMUX PATCH: Context Memory integration
 import {
   appendContextMemoryEntry,
   type ContextMemoryScope,
 } from '../utils/contextMemory.js';
 
-const memoryToolSchemaData: FunctionDeclaration = {
-  name: MEMORY_TOOL_NAME,
-  description:
-    'Saves a specific piece of information or fact to your long-term memory. Use this when the user explicitly asks you to remember something, or when they state a clear, concise fact that seems important to retain for future interactions.',
-  parametersJsonSchema: {
-    type: 'object',
-    properties: {
-      fact: {
-        type: 'string',
-        description:
-          'The specific fact or piece of information to remember. Should be a clear, self-contained statement.',
-      },
-      target: {
-        type: 'string',
-        enum: ['user', 'base'],
-        description:
-          'Where to store the fact: user (default) writes to user.json/journal; base writes to base.json (requires allowBaseWrite setting).',
-      },
-      entry: {
-        type: 'object',
-        description:
-          'Optional structured fields for the entry (used when saving richer facts).',
-        properties: {
-          key: { type: 'string' },
-          scope: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          expiresAt: { type: 'string' },
-          sensitivity: { type: 'string', enum: ['low', 'medium', 'high'] },
-          source: { type: 'string' },
-          confidence: { type: 'number' },
-        },
-      },
-    },
-    required: ['fact'],
-  },
-};
-
-const memoryToolDescription = `
-Saves a specific piece of information or fact to your long-term memory.
-
-Use this tool:
-
-- When the user explicitly asks you to remember something (e.g., "Remember that I like pineapple on pizza", "Please save this: my cat's name is Whiskers").
-- When the user states a clear, concise fact about themselves, their preferences, or their environment that seems important for you to retain for future interactions to provide a more personalized and effective assistance.
-
-Do NOT use this tool:
-
-- To remember conversational context that is only relevant for the current session.
-- To save long, complex, or rambling pieces of text. The fact should be relatively short and to the point.
-- If you are unsure whether the information is a fact worth remembering long-term. If in doubt, you can ask the user, "Should I remember that for you?"
-
-## Parameters
-
-- \`fact\` (string, required): The specific fact or piece of information to remember. This should be a clear, self-contained statement. For example, if the user says "My favorite color is blue", the fact would be "My favorite color is blue".`;
-
 export const DEFAULT_CONTEXT_FILENAME = 'GEMINI.md';
 export const MEMORY_SECTION_HEADER = '## Gemini Added Memories';
 
-// This variable will hold the currently configured filename for GEMINI.md context files.
-// It defaults to DEFAULT_CONTEXT_FILENAME but can be overridden by setGeminiMdFilename.
 let currentGeminiMdFilename: string | string[] = DEFAULT_CONTEXT_FILENAME;
 
 export function setGeminiMdFilename(newFilename: string | string[]): void {
@@ -136,9 +81,6 @@ export function getGlobalMemoryFilePath(): string {
   return path.join(Storage.getGlobalGeminiDir(), getCurrentGeminiMdFilename());
 }
 
-/**
- * Ensures proper newline separation before appending content.
- */
 function ensureNewlineSeparation(currentContent: string): string {
   if (currentContent.length === 0) return '';
   if (currentContent.endsWith('\n\n') || currentContent.endsWith('\r\n\r\n'))
@@ -148,9 +90,6 @@ function ensureNewlineSeparation(currentContent: string): string {
   return '\n\n';
 }
 
-/**
- * Reads the current content of the memory file
- */
 async function readMemoryFileContent(): Promise<string> {
   try {
     return await fs.readFile(getGlobalMemoryFilePath(), 'utf-8');
@@ -161,32 +100,27 @@ async function readMemoryFileContent(): Promise<string> {
   }
 }
 
-/**
- * Computes the new content that would result from adding a memory entry
- */
 function computeNewContent(currentContent: string, fact: string): string {
-  let processedText = fact.trim();
+  let processedText = fact.replace(/[\r\n]/g, ' ').trim();
   processedText = processedText.replace(/^(-+\s*)+/, '').trim();
   const newMemoryItem = `- ${processedText}`;
 
   const headerIndex = currentContent.indexOf(MEMORY_SECTION_HEADER);
 
   if (headerIndex === -1) {
-    // Header not found, append header and then the entry
     const separator = ensureNewlineSeparation(currentContent);
     return (
       currentContent +
       `${separator}${MEMORY_SECTION_HEADER}\n${newMemoryItem}\n`
     );
   } else {
-    // Header found, find where to insert the new memory entry
     const startOfSectionContent = headerIndex + MEMORY_SECTION_HEADER.length;
     let endOfSectionIndex = currentContent.indexOf(
       '\n## ',
       startOfSectionContent,
     );
     if (endOfSectionIndex === -1) {
-      endOfSectionIndex = currentContent.length; // End of file
+      endOfSectionIndex = currentContent.length;
     }
 
     const beforeSectionMarker = currentContent
@@ -210,6 +144,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
   ToolResult
 > {
   private static readonly allowlist: Set<string> = new Set();
+  private proposedNewContent: string | undefined;
 
   constructor(
     params: SaveMemoryParams,
@@ -236,13 +171,20 @@ class MemoryToolInvocation extends BaseToolInvocation<
     }
 
     const currentContent = await readMemoryFileContent();
-    const newContent = computeNewContent(currentContent, this.params.fact);
+    const { fact, modified_by_user, modified_content } = this.params;
+
+    const contentForDiff =
+      modified_by_user && modified_content !== undefined
+        ? modified_content
+        : computeNewContent(currentContent, fact);
+
+    this.proposedNewContent = contentForDiff;
 
     const fileName = path.basename(memoryFilePath);
     const fileDiff = Diff.createPatch(
       fileName,
       currentContent,
-      newContent,
+      this.proposedNewContent,
       'Current',
       'Proposed',
       DEFAULT_DIFF_OPTIONS,
@@ -255,12 +197,11 @@ class MemoryToolInvocation extends BaseToolInvocation<
       filePath: memoryFilePath,
       fileDiff,
       originalContent: currentContent,
-      newContent,
+      newContent: this.proposedNewContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           MemoryToolInvocation.allowlist.add(allowlistKey);
         }
-        await this.publishPolicyUpdate(outcome);
       },
     };
     return confirmationDetails;
@@ -271,46 +212,59 @@ class MemoryToolInvocation extends BaseToolInvocation<
       this.params;
 
     try {
+      let contentToWrite: string;
+      let successMessage: string;
+
+      const sanitizedFact = fact.replace(/[\r\n]/g, ' ').trim();
+
       if (modified_by_user && modified_content !== undefined) {
-        // User modified the content in external editor, write it directly
-        await fs.mkdir(path.dirname(getGlobalMemoryFilePath()), {
-          recursive: true,
-        });
-        await fs.writeFile(
-          getGlobalMemoryFilePath(),
-          modified_content,
-          'utf-8',
-        );
-        const successMessage = `Okay, I've updated the memory file with your modifications.`;
-        return {
-          llmContent: JSON.stringify({
-            success: true,
-            message: successMessage,
-          }),
-          returnDisplay: successMessage,
-        };
+        contentToWrite = modified_content;
+        successMessage = `Okay, I've updated the memory file with your modifications.`;
       } else {
-        // Use the normal memory entry logic
-        await MemoryTool.performAddMemoryEntry(
-          fact,
-          getGlobalMemoryFilePath(),
-          {
-            readFile: fs.readFile,
-            writeFile: fs.writeFile,
-            mkdir: fs.mkdir,
-          },
-          target ?? 'user',
-          entry ?? undefined,
-        );
-        const successMessage = `Okay, I've remembered that: "${fact}"`;
-        return {
-          llmContent: JSON.stringify({
-            success: true,
-            message: successMessage,
-          }),
-          returnDisplay: successMessage,
-        };
+        if (this.proposedNewContent === undefined) {
+          const currentContent = await readMemoryFileContent();
+          this.proposedNewContent = computeNewContent(currentContent, fact);
+        }
+        contentToWrite = this.proposedNewContent;
+        successMessage = `Okay, I've remembered that: "${sanitizedFact}"`;
       }
+
+      await fs.mkdir(path.dirname(getGlobalMemoryFilePath()), {
+        recursive: true,
+      });
+      await fs.writeFile(getGlobalMemoryFilePath(), contentToWrite, 'utf-8');
+
+      // TERMUX PATCH: Also persist into JSON context memory
+      if (!modified_by_user) {
+        try {
+          const meta = entry
+            ? ({
+                ...entry,
+                scope: entry.scope as ContextMemoryScope | undefined,
+              } as Partial<import('../utils/contextMemory.js').ContextMemoryEntry>)
+            : undefined;
+          await appendContextMemoryEntry(
+            fact,
+            target ?? 'user',
+            entry?.scope as ContextMemoryScope | undefined,
+            undefined,
+            meta,
+          );
+        } catch (err) {
+          console.warn(
+            '[MemoryTool] Failed to mirror entry to context memory:',
+            err,
+          );
+        }
+      }
+
+      return {
+        llmContent: JSON.stringify({
+          success: true,
+          message: successMessage,
+        }),
+        returnDisplay: successMessage,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -339,9 +293,9 @@ export class MemoryTool
     super(
       MemoryTool.Name,
       'SaveMemory',
-      memoryToolDescription,
+      MEMORY_DEFINITION.base.description!,
       Kind.Think,
-      memoryToolSchemaData.parametersJsonSchema as Record<string, unknown>,
+      MEMORY_DEFINITION.base.parametersJsonSchema,
       messageBus,
       true,
       false,
@@ -378,64 +332,8 @@ export class MemoryTool
     );
   }
 
-  static async performAddMemoryEntry(
-    text: string,
-    memoryFilePath: string,
-    fsAdapter: {
-      readFile: (path: string, encoding: 'utf-8') => Promise<string>;
-      writeFile: (
-        path: string,
-        data: string,
-        encoding: 'utf-8',
-      ) => Promise<void>;
-      mkdir: (
-        path: string,
-        options: { recursive: boolean },
-      ) => Promise<string | undefined>;
-    },
-    target: 'user' | 'base' = 'user',
-    entry?: SaveMemoryParams['entry'],
-  ): Promise<void> {
-    try {
-      await fsAdapter.mkdir(path.dirname(memoryFilePath), { recursive: true });
-      let currentContent = '';
-      try {
-        currentContent = await fsAdapter.readFile(memoryFilePath, 'utf-8');
-      } catch (_e) {
-        // File doesn't exist, which is fine. currentContent will be empty.
-      }
-
-      const newContent = computeNewContent(currentContent, text);
-
-      await fsAdapter.writeFile(memoryFilePath, newContent, 'utf-8');
-      // Also persist into JSON context memory (append-only journal or base)
-      try {
-        const meta = entry
-          ? ({
-              ...entry,
-              scope: entry.scope as ContextMemoryScope | undefined,
-            } as Partial<
-              import('../utils/contextMemory.js').ContextMemoryEntry
-            >)
-          : undefined;
-        await appendContextMemoryEntry(
-          text,
-          target,
-          entry?.scope as ContextMemoryScope | undefined,
-          undefined,
-          meta,
-        );
-      } catch (err) {
-        console.warn(
-          '[MemoryTool] Failed to mirror entry to context memory:',
-          err,
-        );
-      }
-    } catch (error) {
-      throw new Error(
-        `[MemoryTool] Failed to add memory entry: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  override getSchema(modelId?: string) {
+    return resolveToolDeclaration(MEMORY_DEFINITION, modelId);
   }
 
   getModifyContext(_abortSignal: AbortSignal): ModifyContext<SaveMemoryParams> {
@@ -445,7 +343,10 @@ export class MemoryTool
         readMemoryFileContent(),
       getProposedContent: async (params: SaveMemoryParams): Promise<string> => {
         const currentContent = await readMemoryFileContent();
-        return computeNewContent(currentContent, params.fact);
+        const { fact, modified_by_user, modified_content } = params;
+        return modified_by_user && modified_content !== undefined
+          ? modified_content
+          : computeNewContent(currentContent, fact);
       },
       createUpdatedParams: (
         _oldContent: string,

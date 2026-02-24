@@ -130,7 +130,19 @@ export async function maybePromptForSettings(
 function formatEnvContent(settings: Record<string, string>): string {
   let envContent = '';
   for (const [key, value] of Object.entries(settings)) {
-    const formattedValue = value.includes(' ') ? `"${value}"` : value;
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+      throw new Error(
+        `Invalid environment variable name: "${key}". Must contain only alphanumeric characters and underscores.`,
+      );
+    }
+    if (value.includes('\n') || value.includes('\r')) {
+      throw new Error(
+        `Invalid environment variable value for "${key}". Values cannot contain newlines.`,
+      );
+    }
+    const formattedValue = value.includes(' ')
+      ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+      : value;
     envContent += `${key}=${formattedValue}\n`;
   }
   return envContent;
@@ -144,6 +156,7 @@ export async function promptForSetting(
     name: 'value',
     message: `${setting.name}\n${setting.description}`,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return response.value;
 }
 
@@ -251,7 +264,11 @@ export async function updateSetting(
   }
 
   const parsedEnv = dotenv.parse(envContent);
-  parsedEnv[settingToUpdate.envVar] = newValue;
+  if (!newValue) {
+    delete parsedEnv[settingToUpdate.envVar];
+  } else {
+    parsedEnv[settingToUpdate.envVar] = newValue;
+  }
 
   // We only want to write back the variables that are not sensitive.
   const nonSensitiveSettings: Record<string, string> = {};

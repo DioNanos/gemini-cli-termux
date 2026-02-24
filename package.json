@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.28.2-termux",
+  "version": "0.30.0-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -14,20 +14,25 @@
     "url": "https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.26.0-termux"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.30.0-termux"
   },
   "scripts": {
     "start": "crossenv NODE_ENV=development node scripts/start.js",
     "build": "node scripts/build.js",
     "bundle": "npm run generate && node esbuild.config.js && node scripts/copy_bundle_assets.js",
-    "generate": "node scripts/generate-git-commit-info.js"
+    "generate": "node scripts/generate-git-commit-info.js",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --cache",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "overrides": {
-    "ink": "npm:@jrichman/ink@6.4.7",
+    "ink": "npm:@jrichman/ink@6.4.11",
     "wrap-ansi": "9.0.2",
     "cliui": {
       "wrap-ansi": "7.0.0"
-    }
+    },
+    "glob": "^12.0.0",
+    "node-domexception": "^1.0.0"
   },
   "bin": {
     "gemini": "./bundle/gemini.js"
@@ -42,6 +47,50 @@
     "README.md",
     "LICENSE"
   ],
+  "devDependencies": {
+    "@octokit/rest": "^22.0.0",
+    "@types/marked": "^5.0.2",
+    "@types/mime-types": "^3.0.1",
+    "@types/minimatch": "^5.1.2",
+    "@types/mock-fs": "^4.13.4",
+    "@types/prompts": "^2.4.9",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/shell-quote": "^1.7.5",
+    "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^3.1.1",
+    "@vitest/eslint-plugin": "^1.3.4",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.25.0",
+    "esbuild-plugin-wasm": "^1.1.0",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-headers": "^1.3.3",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "glob": "^12.0.0",
+    "globals": "^16.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
+    "memfs": "^4.42.0",
+    "mock-fs": "^5.5.0",
+    "msw": "^2.10.4",
+    "prettier": "^3.5.3",
+    "react-dom": "^19.2.0",
+    "semver": "^7.7.2",
+    "typescript-eslint": "^8.30.1",
+    "vitest": "^3.2.4",
+    "yargs": "^17.7.2"
+  },
+  "dependencies": {
+    "ink": "npm:@jrichman/ink@6.4.11",
+    "latest-version": "^9.0.0",
+    "proper-lockfile": "^4.1.2",
+    "punycode": "^2.3.1",
+    "simple-git": "^3.28.0"
+  },
   "optionalDependencies": {
     "@esbuild/android-arm64": "^0.27.1",
     "@mmmbuto/node-pty-android-arm64": "~1.1.0"

@@ -25,15 +25,29 @@ import {
   type GeminiChat,
   type Config,
   type MessageBus,
+  LlmRole,
 } from '@google/gemini-cli-core';
-import { SettingScope, type LoadedSettings } from '../config/settings.js';
+import {
+  SettingScope,
+  type LoadedSettings,
+  loadSettings,
+} from '../config/settings.js';
 import { loadCliConfig, type CliArgs } from '../config/config.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { ApprovalMode } from '@google/gemini-cli-core/src/policy/types.js';
 
 vi.mock('../config/config.js', () => ({
   loadCliConfig: vi.fn(),
 }));
+
+vi.mock('../config/settings.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../config/settings.js')>();
+  return {
+    ...actual,
+    loadSettings: vi.fn(),
+  };
+});
 
 vi.mock('node:crypto', () => ({
   randomUUID: () => 'test-session-id',
@@ -59,7 +73,7 @@ vi.mock(
       ...actual,
       ReadManyFilesTool: vi.fn().mockImplementation(() => ({
         name: 'read_many_files',
-        kind: 'native',
+        kind: 'read',
         build: vi.fn().mockReturnValue({
           getDescription: () => 'Read files',
           toolLocations: () => [],
@@ -70,6 +84,28 @@ vi.mock(
       })),
       logToolCall: vi.fn(),
       isWithinRoot: vi.fn().mockReturnValue(true),
+      LlmRole: {
+        MAIN: 'main',
+        SUBAGENT: 'subagent',
+        UTILITY_TOOL: 'utility_tool',
+        UTILITY_COMPRESSOR: 'utility_compressor',
+        UTILITY_SUMMARIZER: 'utility_summarizer',
+        UTILITY_ROUTER: 'utility_router',
+        UTILITY_LOOP_DETECTOR: 'utility_loop_detector',
+        UTILITY_NEXT_SPEAKER: 'utility_next_speaker',
+        UTILITY_EDIT_CORRECTOR: 'utility_edit_corrector',
+        UTILITY_AUTOCOMPLETE: 'utility_autocomplete',
+        UTILITY_FAST_ACK_HELPER: 'utility_fast_ack_helper',
+      },
+      CoreToolCallStatus: {
+        Validating: 'validating',
+        Scheduled: 'scheduled',
+        Error: 'error',
+        Success: 'success',
+        Executing: 'executing',
+        Cancelled: 'cancelled',
+        AwaitingApproval: 'awaiting_approval',
+      },
     };
   },
 );
@@ -95,6 +131,9 @@ describe('GeminiAgent', () => {
       initialize: vi.fn(),
       getFileSystemService: vi.fn(),
       setFileSystemService: vi.fn(),
+      getContentGeneratorConfig: vi.fn(),
+      getActiveModel: vi.fn().mockReturnValue('gemini-pro'),
+      getModel: vi.fn().mockReturnValue('gemini-pro'),
       getGeminiClient: vi.fn().mockReturnValue({
         startChat: vi.fn().mockResolvedValue({}),
       }),
@@ -103,6 +142,8 @@ describe('GeminiAgent', () => {
         subscribe: vi.fn(),
         unsubscribe: vi.fn(),
       }),
+      getApprovalMode: vi.fn().mockReturnValue('default'),
+      isPlanEnabled: vi.fn().mockReturnValue(false),
     } as unknown as Mocked<Awaited<ReturnType<typeof loadCliConfig>>>;
     mockSettings = {
       merged: {
@@ -117,6 +158,13 @@ describe('GeminiAgent', () => {
     } as unknown as Mocked<acp.AgentSideConnection>;
 
     (loadCliConfig as unknown as Mock).mockResolvedValue(mockConfig);
+    (loadSettings as unknown as Mock).mockImplementation(() => ({
+      merged: {
+        security: { auth: { selectedType: AuthType.LOGIN_WITH_GOOGLE } },
+        mcpServers: {},
+      },
+      setValue: vi.fn(),
+    }));
 
     agent = new GeminiAgent(mockConfig, mockSettings, mockArgv, mockConnection);
   });
@@ -129,7 +177,7 @@ describe('GeminiAgent', () => {
 
     expect(response.protocolVersion).toBe(acp.PROTOCOL_VERSION);
     expect(response.authMethods).toHaveLength(3);
-    expect(response.agentCapabilities?.loadSession).toBe(false);
+    expect(response.agentCapabilities?.loadSession).toBe(true);
   });
 
   it('should authenticate correctly', async () => {
@@ -148,6 +196,9 @@ describe('GeminiAgent', () => {
   });
 
   it('should create a new session', async () => {
+    mockConfig.getContentGeneratorConfig = vi.fn().mockReturnValue({
+      apiKey: 'test-key',
+    });
     const response = await agent.newSession({
       cwd: '/tmp',
       mcpServers: [],
@@ -157,6 +208,81 @@ describe('GeminiAgent', () => {
     expect(loadCliConfig).toHaveBeenCalled();
     expect(mockConfig.initialize).toHaveBeenCalled();
     expect(mockConfig.getGeminiClient).toHaveBeenCalled();
+  });
+
+  it('should return modes without plan mode when plan is disabled', async () => {
+    mockConfig.getContentGeneratorConfig = vi.fn().mockReturnValue({
+      apiKey: 'test-key',
+    });
+    mockConfig.isPlanEnabled = vi.fn().mockReturnValue(false);
+    mockConfig.getApprovalMode = vi.fn().mockReturnValue('default');
+
+    const response = await agent.newSession({
+      cwd: '/tmp',
+      mcpServers: [],
+    });
+
+    expect(response.modes).toEqual({
+      availableModes: [
+        { id: 'default', name: 'Default', description: 'Prompts for approval' },
+        {
+          id: 'autoEdit',
+          name: 'Auto Edit',
+          description: 'Auto-approves edit tools',
+        },
+        { id: 'yolo', name: 'YOLO', description: 'Auto-approves all tools' },
+      ],
+      currentModeId: 'default',
+    });
+  });
+
+  it('should return modes with plan mode when plan is enabled', async () => {
+    mockConfig.getContentGeneratorConfig = vi.fn().mockReturnValue({
+      apiKey: 'test-key',
+    });
+    mockConfig.isPlanEnabled = vi.fn().mockReturnValue(true);
+    mockConfig.getApprovalMode = vi.fn().mockReturnValue('plan');
+
+    const response = await agent.newSession({
+      cwd: '/tmp',
+      mcpServers: [],
+    });
+
+    expect(response.modes).toEqual({
+      availableModes: [
+        { id: 'default', name: 'Default', description: 'Prompts for approval' },
+        {
+          id: 'autoEdit',
+          name: 'Auto Edit',
+          description: 'Auto-approves edit tools',
+        },
+        { id: 'yolo', name: 'YOLO', description: 'Auto-approves all tools' },
+        { id: 'plan', name: 'Plan', description: 'Read-only mode' },
+      ],
+      currentModeId: 'plan',
+    });
+  });
+
+  it('should fail session creation if Gemini API key is missing', async () => {
+    (loadSettings as unknown as Mock).mockImplementation(() => ({
+      merged: {
+        security: { auth: { selectedType: AuthType.USE_GEMINI } },
+        mcpServers: {},
+      },
+      setValue: vi.fn(),
+    }));
+    mockConfig.getContentGeneratorConfig = vi.fn().mockReturnValue({
+      apiKey: undefined,
+    });
+
+    await expect(
+      agent.newSession({
+        cwd: '/tmp',
+        mcpServers: [],
+      }),
+    ).rejects.toMatchObject({
+      message: 'Gemini API key is missing or not configured.',
+    });
   });
 
   it('should create a new session with mcp servers', async () => {
@@ -194,14 +320,14 @@ describe('GeminiAgent', () => {
     mockConfig.refreshAuth.mockRejectedValue(new Error('Auth failed'));
     const debugSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    // Should throw RequestError.authRequired()
+    // Should throw RequestError with custom message
     await expect(
       agent.newSession({
         cwd: '/tmp',
         mcpServers: [],
       }),
     ).rejects.toMatchObject({
-      message: 'Authentication required',
+      message: 'Auth failed',
     });
 
     debugSpy.mockRestore();
@@ -258,6 +384,32 @@ describe('GeminiAgent', () => {
     expect(session.prompt).toHaveBeenCalled();
     expect(result).toEqual({ stopReason: 'end_turn' });
   });
+
+  it('should delegate setMode to session', async () => {
+    await agent.newSession({ cwd: '/tmp', mcpServers: [] });
+    const session = (
+      agent as unknown as { sessions: Map<string, Session> }
+    ).sessions.get('test-session-id');
+    if (!session) throw new Error('Session not found');
+    session.setMode = vi.fn().mockReturnValue({});
+
+    const result = await agent.setSessionMode({
+      sessionId: 'test-session-id',
+      modeId: 'plan',
+    });
+
+    expect(session.setMode).toHaveBeenCalledWith('plan');
+    expect(result).toEqual({});
+  });
+
+  it('should throw error when setting mode on non-existent session', async () => {
+    await expect(
+      agent.setSessionMode({
+        sessionId: 'unknown',
+        modeId: 'plan',
+      }),
+    ).rejects.toThrow('Session not found: unknown');
+  });
 });
 
 describe('Session', () => {
@@ -273,9 +425,10 @@ describe('Session', () => {
     mockChat = {
       sendMessageStream: vi.fn(),
       addHistory: vi.fn(),
+      recordCompletedToolCalls: vi.fn(),
     } as unknown as Mocked<GeminiChat>;
     mockTool = {
-      kind: 'native',
+      kind: 'read',
       build: vi.fn().mockReturnValue({
         getDescription: () => 'Test Tool',
         toolLocations: () => [],
@@ -293,7 +446,7 @@ describe('Session', () => {
     } as unknown as Mocked<MessageBus>;
     mockConfig = {
       getModel: vi.fn().mockReturnValue('gemini-pro'),
-      getPreviewFeatures: vi.fn().mockReturnValue({}),
+      getActiveModel: vi.fn().mockReturnValue('gemini-pro'),
       getToolRegistry: vi.fn().mockReturnValue(mockToolRegistry),
       getFileService: vi.fn().mockReturnValue({
         shouldIgnoreFile: vi.fn().mockReturnValue(false),
@@ -303,6 +456,8 @@ describe('Session', () => {
       getEnableRecursiveFileSearch: vi.fn().mockReturnValue(false),
       getDebugMode: vi.fn().mockReturnValue(false),
       getMessageBus: vi.fn().mockReturnValue(mockMessageBus),
+      setApprovalMode: vi.fn(),
+      isPlanEnabled: vi.fn().mockReturnValue(false),
     } as unknown as Mocked<Config>;
     mockConnection = {
       sessionUpdate: vi.fn(),
@@ -378,6 +533,7 @@ describe('Session', () => {
         update: expect.objectContaining({
           sessionUpdate: 'tool_call',
           status: 'in_progress',
+          kind: 'read',
         }),
       }),
     );
@@ -499,6 +655,92 @@ describe('Session', () => {
     );
   });
 
+  it('should include _meta.kind in diff tool calls', async () => {
+    // Test 'add' (no original content)
+    const addConfirmation = {
+      type: 'edit',
+      fileName: 'new.txt',
+      originalContent: null,
+      newContent: 'New content',
+      onConfirm: vi.fn(),
+    };
+
+    // Test 'modify' (original and new content)
+    const modifyConfirmation = {
+      type: 'edit',
+      fileName: 'existing.txt',
+      originalContent: 'Old content',
+      newContent: 'New content',
+      onConfirm: vi.fn(),
+    };
+
+    // Test 'delete' (original content, no new content)
+    const deleteConfirmation = {
+      type: 'edit',
+      fileName: 'deleted.txt',
+      originalContent: 'Old content',
+      newContent: '',
+      onConfirm: vi.fn(),
+    };
+
+    const mockBuild = vi.fn();
+    mockTool.build = mockBuild;
+
+    // Helper to simulate tool call and check permission request
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkDiffKind = async (confirmation: any, expectedKind: string) => {
+      mockBuild.mockReturnValueOnce({
+        getDescription: () => 'Test Tool',
+        toolLocations: () => [],
+        shouldConfirmExecute: vi.fn().mockResolvedValue(confirmation),
+        execute: vi.fn().mockResolvedValue({ llmContent: 'Result' }),
+      });
+
+      mockConnection.requestPermission.mockResolvedValueOnce({
+        outcome: {
+          outcome: 'selected',
+          optionId: ToolConfirmationOutcome.ProceedOnce,
+        },
+      });
+
+      const stream = createMockStream([
+        {
+          type: StreamEventType.CHUNK,
+          value: {
+            functionCalls: [{ name: 'test_tool', args: {} }],
+          },
+        },
+      ]);
+      const emptyStream = createMockStream([]);
+
+      mockChat.sendMessageStream
+        .mockResolvedValueOnce(stream)
+        .mockResolvedValueOnce(emptyStream);
+
+      await session.prompt({
+        sessionId: 'session-1',
+        prompt: [{ type: 'text', text: 'Call tool' }],
+      });
+
+      expect(mockConnection.requestPermission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolCall: expect.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'diff',
+                _meta: { kind: expectedKind },
+              }),
+            ]),
+          }),
+        }),
+      );
+    };
+
+    await checkDiffKind(addConfirmation, 'add');
+    await checkDiffKind(modifyConfirmation, 'modify');
+    await checkDiffKind(deleteConfirmation, 'delete');
+  });
+
   it('should handle @path resolution', async () => {
     (path.resolve as unknown as Mock).mockReturnValue('/tmp/file.txt');
     (fs.stat as unknown as Mock).mockResolvedValue({
@@ -540,7 +782,8 @@ describe('Session', () => {
         }),
       ]),
       expect.anything(),
-      expect.anything(),
+      expect.any(AbortSignal),
+      LlmRole.MAIN,
     );
   });
 
@@ -771,5 +1014,18 @@ describe('Session', () => {
         MockReadManyFilesTool.mock.results.length - 1
       ].value;
     expect(mockInstance.build).toHaveBeenCalled();
+  });
+
+  it('should set mode on config', () => {
+    session.setMode(ApprovalMode.AUTO_EDIT);
+    expect(mockConfig.setApprovalMode).toHaveBeenCalledWith(
+      ApprovalMode.AUTO_EDIT,
+    );
+  });
+
+  it('should throw error for invalid mode', () => {
+    expect(() => session.setMode('invalid-mode')).toThrow(
+      'Invalid or unavailable mode: invalid-mode',
+    );
   });
 });

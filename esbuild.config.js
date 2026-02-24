@@ -55,7 +55,18 @@ function createWasmPlugins() {
 }
 
 // TERMUX PATCH: Use our PTY package for Android ARM64, plus keytar from upstream
-const external = ['@mmmbuto/node-pty-android-arm64', 'keytar'];
+const external = [
+  '@mmmbuto/node-pty-android-arm64',
+  '@lydell/node-pty',
+  'node-pty',
+  '@lydell/node-pty-darwin-arm64',
+  '@lydell/node-pty-darwin-x64',
+  '@lydell/node-pty-linux-x64',
+  '@lydell/node-pty-win32-arm64',
+  '@lydell/node-pty-win32-x64',
+  'keytar',
+  '@google/gemini-cli-devtools',
+];
 
 const baseConfig = {
   bundle: true,
@@ -64,6 +75,10 @@ const baseConfig = {
   external,
   loader: { '.node': 'file' },
   write: true,
+};
+
+const commonAliases = {
+  punycode: 'punycode/',
 };
 
 const cliConfig = {
@@ -87,6 +102,7 @@ if (process.platform === 'android') { const _origEmit = process.emit; process.em
   plugins: createWasmPlugins(),
   alias: {
     'is-in-ci': path.resolve(__dirname, 'packages/cli/src/patches/is-in-ci.ts'),
+    ...commonAliases,
   },
   metafile: true,
 };
@@ -102,6 +118,7 @@ const a2aServerConfig = {
     'process.env.CLI_VERSION': JSON.stringify(pkg.version),
   },
   plugins: createWasmPlugins(),
+  alias: commonAliases,
 };
 
 Promise.allSettled([
