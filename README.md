@@ -188,8 +188,6 @@ From the latest test reports:
 - `gemini extensions settings` works, may appear as `config` in some versions
 - `auth` / `logout` are functional but may not appear in the top-level help
   output
-- A standalone PTY require-test may fail in some environments even when PTY
-  works in the app
 - **Context Memory**: ✅ **Functional** - reads from `~/.gemini/context_memory/`
 - **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings,
   `termux-tts-speak` enabled by default
@@ -197,24 +195,21 @@ From the latest test reports:
 
 **Termux ARM64 (Android):**
 
-- **Context Memory**: ⚠️ init `ENOENT` on empty path; files exist
-- **Agent TOML**: ❌ loader file not found (source older than test suite)
-- **PTY**: ✅ loaded correctly
+- **PTY**: ✅ loaded correctly via @mmmbuto/node-pty-android-arm64
 - **Termux-API**: ✅ detection & discovery OK
+- **Context Memory**: ✅ **Fixed** in v0.30.0-termux
+- **TTS**: ✅ Works via `termux-tts-speak`
+- **Update check**: ✅ Points to `@mmmbuto/gemini-cli-termux` on npm
 
-Full reports:
-
-- [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
-- [GEMINI_TEST_REPORT_v0.30.0-termux.md](./GEMINI_TEST_REPORT_v0.30.0-termux.md)
+Full reports in [`test-reports/`](./test-reports/) directory.
 
 ---
 
 ## Documentation
 
-- **Test Suite**: [GEMINI_TEST_SUITE.md](./GEMINI_TEST_SUITE.md)
-- **Test Report (latest)**:
-  [GEMINI_TEST_REPORT_v0.28.0-linux.md](./GEMINI_TEST_REPORT_v0.28.0-linux.md)
-  [GEMINI_TEST_REPORT_v0.30.0-termux.md](./GEMINI_TEST_REPORT_v0.30.0-termux.md)
+- **Test Suite**: [`test-reports/suites/basic-smoke.md`](./test-reports/suites/basic-smoke.md)
+- **Test Reports**: [`test-reports/`](./test-reports/)
+- **Changelog**: [`CHANGELOG.md`](./CHANGELOG.md)
 - **Context Memory**: `docs/cli/context-memory.md`
 - **Termux-specific docs**: `docs/TERMUX.md`
 
