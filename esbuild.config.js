@@ -66,7 +66,6 @@ const external = [
   '@lydell/node-pty-win32-x64',
   'keytar',
   '@google/gemini-cli-devtools',
-  'react-devtools-core',
 ];
 
 const baseConfig = {
@@ -103,6 +102,7 @@ if (process.platform === 'android') { const _origEmit = process.emit; process.em
   plugins: createWasmPlugins(),
   alias: {
     'is-in-ci': path.resolve(__dirname, 'packages/cli/src/patches/is-in-ci.ts'),
+    'react-devtools-core': path.resolve(__dirname, 'packages/cli/src/patches/empty-module.ts'),
     ...commonAliases,
   },
   metafile: true,
