@@ -66,6 +66,7 @@ const external = [
   '@lydell/node-pty-win32-x64',
   'keytar',
   '@google/gemini-cli-devtools',
+  'react-devtools-core',
 ];
 
 const baseConfig = {

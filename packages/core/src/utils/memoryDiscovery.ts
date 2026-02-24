@@ -547,8 +547,9 @@ export async function loadServerHierarchicalMemory(
     contextMemoryPaths = contextMemoryResult.usedPaths;
 
     // Merge context memory into global if enabled
-    if (contextMemoryResult.content && contextMemoryOptions.autoLoadJsonBase) {
-      hierarchicalMemory.global = [hierarchicalMemory.global, contextMemoryResult.content]
+    if (contextMemoryOptions.autoLoadJsonBase && contextMemoryResult.files.length > 0) {
+      const contextContent = contextMemoryResult.files.map(f => f.content).join('\n\n');
+      hierarchicalMemory.global = [hierarchicalMemory.global, contextContent]
         .filter(Boolean)
         .join('\n\n');
     }
