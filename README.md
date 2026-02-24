@@ -181,18 +181,6 @@ See `docs/TERMUX.md` for Termux-specific documentation.
 
 ## Known differences vs upstream (v0.30.0-termux)
 
-From the latest test reports:
-
-**Linux x86_64 (VPS1):**
-
-- `gemini extensions settings` works, may appear as `config` in some versions
-- `auth` / `logout` are functional but may not appear in the top-level help
-  output
-- **Context Memory**: ✅ **Functional** - reads from `~/.gemini/context_memory/`
-- **TTS (Text-to-Speech)**: ✅ **Functional** - reads from settings,
-  `termux-tts-speak` enabled by default
-- **googleSearch tool**: ✅ **Fixed** - works without external dependencies
-
 **Termux ARM64 (Android):**
 
 - **PTY**: ✅ loaded correctly via @mmmbuto/node-pty-android-arm64
