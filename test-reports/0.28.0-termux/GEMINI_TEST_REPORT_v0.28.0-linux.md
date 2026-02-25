@@ -24,7 +24,7 @@
 | 9. Package/binary      | PASS   | Bundle 23MB, exists                  |
 | 10. PTY checks         | N/A    | ARM64 package not applicable on x86_64|
 | 11. Termux-API         | PARTIAL | isTermux() returns false (correct)   |
-| 12. Context Memory     | PASS   | JSON files valid                     |
+| 12. Session State Files | PASS  | JSON files valid                     |
 | 13. Gemini 3 Flash     | PASS   | Model works, gives correct answer    |
 | 14. Agent TOML         | PASS   | TOML loader exists in policy/        |
 | 15. Auth Logout        | PARTIAL | Not in --help, needs interactive test|
@@ -95,7 +95,7 @@
 - 11.3 Tool call: Not tested (not on Termux)
 - 11.4 Installation helpers: Scripts exist OK
 
-### 12. Context Memory & Memory Mode
+### 12. Session State Files
 
 - 12.1-12.8: Not tested (requires interactive mode)
 - 12.9 JSON validity: Both files pass validation OK

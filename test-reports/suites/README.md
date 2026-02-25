@@ -2,21 +2,13 @@
 
 Runnable test checklists for Gemini CLI Termux Edition.
 
-## Index
+## Available Suites
 
-- **basic-smoke.md** — Core functionality validation
-- **termux-runtime.md** — Termux/Android specific tests (to be created)
+- `GEMINI-TEST-SUITE.md` - Full executable validation suite for published Termux package
+- `basic-smoke.md` - Termux runtime, PTY, browser/auth, TTS and packaging smoke checks
 
-## Quick Start
+## Usage
 
-1. Install: `npm install -g @mmmbuto/gemini-cli-termux@latest`
-2. Run: See `basic-smoke.md`
-3. Report: Save in `test-reports/<version>/`
-
-## Creating a Test Report
-
-After running a test suite:
-
-1. Copy the relevant suite template
-2. Fill in results (✅ / ❌ / ⚠️)
-3. Save as `test-reports/<version>/TEST-REPORT-YYYY-MM-DD.md`
+1. Install or build the fork on Termux
+2. Run the suite commands manually
+3. Save results under `test-reports/<version>/`

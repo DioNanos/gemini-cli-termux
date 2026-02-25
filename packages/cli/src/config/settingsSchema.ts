@@ -253,7 +253,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: false,
         description:
-          'Enable run-event notifications for action-required prompts and session completion. Currently macOS only.',
+          'Enable user notifications (including Termux TTS alerts via the tts_notification tool on Android/Termux).',
         showInDialog: true,
       },
       checkpointing: {

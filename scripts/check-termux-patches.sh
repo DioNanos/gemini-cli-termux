@@ -13,6 +13,8 @@ ERRORS=0
 # Check file existence
 FILES=(
   "packages/core/src/utils/termux-detect.ts"
+  "packages/core/src/tools/tts-notification.ts"
+  "packages/cli/src/patches/empty-module.ts"
   "scripts/postinstall.cjs"
   "scripts/termux-setup.sh"
   "scripts/termux-tools/discovery.sh"
@@ -49,11 +51,35 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# Check PTY deps
+if grep -q "@mmmbuto/pty-termux-utils" package.json && grep -q "@mmmbuto/node-pty-android-arm64" package.json; then
+  echo "  ✓ package.json has Termux PTY dependencies"
+else
+  echo "  ✗ package.json MISSING Termux PTY dependencies"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Check core index export
 if grep -q "termux-detect" packages/core/src/index.ts; then
   echo "  ✓ core/index.ts has termux-detect export"
 else
   echo "  ✗ core/index.ts MISSING termux-detect export"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check browser patches
+if grep -q "termux-open-url" packages/core/src/utils/secure-browser-launcher.ts && grep -q "termux-open-url" packages/cli/src/ui/utils/commandUtils.ts; then
+  echo "  ✓ browser launch uses termux-open-url on Android"
+else
+  echo "  ✗ browser termux-open-url patch missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check TTS tool registration
+if grep -q "TtsNotificationTool" packages/core/src/config/config.ts && grep -q "tts_notification" packages/core/src/tools/tool-names.ts; then
+  echo "  ✓ TTS notification tool is registered"
+else
+  echo "  ✗ TTS notification tool registration missing"
   ERRORS=$((ERRORS + 1))
 fi
 

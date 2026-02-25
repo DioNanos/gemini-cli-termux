@@ -5,12 +5,12 @@
  */
 
 import stripAnsi from 'strip-ansi';
-import type { PtyImplementation } from '@mmmbuto/pty-termux-utils';
-import { getPty } from '@mmmbuto/pty-termux-utils';
+import type { PtyImplementation } from '../utils/getPty.js';
+import { getPty } from '../utils/getPty.js';
 import { spawn as cpSpawn, type ChildProcess } from 'node:child_process';
 import { TextDecoder } from 'node:util';
 import os from 'node:os';
-import type { IPty } from '@mmmbuto/pty-termux-utils';
+import type { IPty } from '@lydell/node-pty';
 import { getCachedEncodingForBuffer } from '../utils/systemEncoding.js';
 import {
   getShellConfiguration,
@@ -85,6 +85,8 @@ export interface ShellExecutionResult {
   executionMethod:
     | 'mmmbuto-node-pty'
     | 'lydell-node-pty-linux-arm64'
+    | 'lydell-node-pty'
+    | 'node-pty'
     | 'child_process'
     | 'none';
   /** Whether the command was moved to the background. */
@@ -786,13 +788,13 @@ export class ShellExecutionService {
           );
         };
 
-        ptyProcess.on('data', (data: string) => {
+        ptyProcess.onData((data: string) => {
           const bufferData = Buffer.from(data, 'utf-8');
           handleOutput(bufferData);
         });
 
-        ptyProcess.on('exit',
-          (exitCode: number, signal: number) => {
+        ptyProcess.onExit(
+          ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
             exited = true;
             abortSignal.removeEventListener('abort', abortHandler);
             this.activePtys.delete(ptyProcess.pid);
@@ -834,12 +836,12 @@ export class ShellExecutionService {
                 rawOutput: finalBuffer,
                 output: getFullBufferText(headlessTerminal),
                 exitCode,
-                signal: signal || null,  // Convert 0 to null for normal exit
+                signal: signal ?? null,
                 error,
                 aborted: abortSignal.aborted,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 pid: ptyProcess.pid,
-                executionMethod: ptyInfo?.name ?? 'mmmbuto-node-pty',
+                executionMethod: ptyInfo?.name ?? 'node-pty',
               });
             };
 
@@ -969,8 +971,7 @@ export class ShellExecutionService {
   ): () => void {
     const activePty = this.activePtys.get(pid);
     if (activePty) {
-      const disposable = activePty.// @ts-ignore
-        ptyProcess.onExit(
+      const disposable = activePty.ptyProcess.onExit(
         ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
           callback(exitCode, signal);
           disposable.dispose();
@@ -1046,7 +1047,7 @@ export class ShellExecutionService {
           error: null,
           aborted: false,
           pid,
-          executionMethod: 'mmmbuto-node-pty',
+          executionMethod: 'node-pty',
           backgrounded: true,
         });
       } else if (activeChild) {

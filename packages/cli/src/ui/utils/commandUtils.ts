@@ -277,12 +277,26 @@ export const getUrlOpenCommand = (): string => {
   if (process.platform === 'android') {
     return 'termux-open-url';
   }
-  // Also detect Termux via PREFIX environment variable
-  if (process.env.PREFIX?.includes('com.termux')) {
-    return 'termux-open-url';
+  // --- Determine the OS-specific command to open URLs ---
+  let openCmd: string;
+  switch (process.platform) {
+    case 'darwin':
+      openCmd = 'open';
+      break;
+    case 'win32':
+      openCmd = 'start';
+      break;
+    case 'linux':
+      openCmd = 'xdg-open';
+      break;
+    default:
+      openCmd = 'xdg-open';
+      debugLogger.warn(
+        `Unknown platform: ${process.platform}. Attempting to open URLs with: ${openCmd}.`,
+      );
+      break;
   }
-  // Fallback for testing on Linux
-  return 'xdg-open';
+  return openCmd;
 };
 
 /**

@@ -35,9 +35,10 @@ execSync('npm run generate', { stdio: 'inherit', cwd: root });
 
 const isAndroid = process.platform === 'android';
 if (isAndroid) {
-  // On Termux skip VSCode companion (esbuild binary mismatch) and focus core/cli/a2a/test-utils
+  // On Termux skip VSCode companion (esbuild binary mismatch) but keep devtools for CLI typings/runtime imports
   const workspaceDirs = [
     'packages/core',
+    'packages/devtools',
     'packages/cli',
     'packages/test-utils',
   ];

@@ -60,7 +60,7 @@ export async function openBrowserSecurely(url: string): Promise<void> {
   let args: string[];
 
   // TERMUX PATCH: Check for Android/Termux first
-  if (platformName === 'android' || process.env.PREFIX?.includes('com.termux')) {
+  if (platformName === 'android') {
     command = 'termux-open-url';
     args = [url];
   } else {
@@ -155,7 +155,7 @@ export async function openBrowserSecurely(url: string): Promise<void> {
  */
 export function shouldLaunchBrowser(): boolean {
   // TERMUX PATCH: Always allow browser on Android/Termux
-  if (platform() === 'android' || process.env.PREFIX?.includes('com.termux')) {
+  if (platform() === 'android') {
     return true;
   }
 

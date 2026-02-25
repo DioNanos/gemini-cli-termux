@@ -11,7 +11,7 @@
 | 8. Termux Specifics    | ✅     | Variables preserved |
 | 10. PTY Checks         | ✅     | Loaded correctly |
 | 11. Termux-API         | ✅     | Detection & Discovery OK |
-| 12. Context Memory     | ⚠️     | Files exist, but `ENOENT` error on init |
+| 12. Session State Files | ⚠️   | Files exist, but `ENOENT` error on init |
 | **13. Gemini 3 Flash** | ✅     | Responds correctly |
 | 14. Agent TOML         | ❌     | Loader file not found (Project not updated) |
 | 15. Auth Logout        | ⏭️     | Skipped (Interactive) |

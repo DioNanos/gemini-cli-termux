@@ -50,29 +50,6 @@ import {
   saveModelChange,
   loadSettings,
 } from './settings.js';
-import { getDefaultContextMemoryOptions } from '@google/gemini-cli-core/src/utils/contextMemory.js';
-import type { ContextMemoryOptions } from '@google/gemini-cli-core/src/utils/contextMemory.js';
-
-type MemoryMode = 'default' | 'jit' | 'jit+json';
-
-function resolveMemoryMode(settings: Settings): {
-  mode: MemoryMode;
-  isExplicit: boolean;
-} {
-  const mode = settings.memory?.mode as MemoryMode | undefined;
-  if (mode === 'default' || mode === 'jit' || mode === 'jit+json') {
-    return { mode, isExplicit: true };
-  }
-  if (settings.experimental?.jitContext) {
-    return { mode: 'jit', isExplicit: false };
-  }
-  return { mode: 'default', isExplicit: false };
-}
-
-function getContextMemorySettings(settings: Settings) {
-  // @ts-ignore - contextMemory may not be fully typed
-  return settings.memory?.contextMemory ?? settings.context?.contextMemory;
-}
 
 import { loadSandboxConfig } from './sandboxConfig.js';
 import { resolvePath } from '../utils/resolvePath.js';
@@ -536,71 +513,7 @@ export async function loadCliConfig(
 
   const experimentalJitContext = settings.experimental?.jitContext ?? false;
 
-  // TERMUX PATCH: Resolve Memory Mode and build ContextMemoryOptions
-  const { mode: memoryMode, isExplicit: memoryModeExplicit } =
-    resolveMemoryMode(settings);
-  const contextMemorySettings = getContextMemorySettings(settings);
-  const defaultContextMemoryOptions = getDefaultContextMemoryOptions();
-
-  const contextMemoryOptions: ContextMemoryOptions = {
-    enabled:
-      contextMemorySettings?.enabled ?? defaultContextMemoryOptions.enabled,
-    allowBaseWrite:
-      contextMemorySettings?.allowBaseWrite ??
-      defaultContextMemoryOptions.allowBaseWrite,
-    primary: contextMemorySettings?.primary ?? defaultContextMemoryOptions.primary,
-    autoLoadGemini:
-      contextMemorySettings?.autoLoadGemini ??
-      defaultContextMemoryOptions.autoLoadGemini,
-    autoLoadJsonBase:
-      contextMemorySettings?.autoLoadJsonBase ??
-      defaultContextMemoryOptions.autoLoadJsonBase,
-    autoLoadJsonUser:
-      contextMemorySettings?.autoLoadJsonUser ??
-      defaultContextMemoryOptions.autoLoadJsonUser,
-    maxEntries:
-      contextMemorySettings?.maxEntries ??
-      defaultContextMemoryOptions.maxEntries,
-    maxChars:
-      contextMemorySettings?.maxChars ?? defaultContextMemoryOptions.maxChars,
-    journalThreshold:
-      contextMemorySettings?.journalThreshold ??
-      defaultContextMemoryOptions.journalThreshold,
-    journalMaxAgeDays:
-      contextMemorySettings?.journalMaxAgeDays ??
-      defaultContextMemoryOptions.journalMaxAgeDays,
-    paths: {
-      base:
-        contextMemorySettings?.paths?.base ||
-        defaultContextMemoryOptions.paths.base,
-      user:
-        contextMemorySettings?.paths?.user ||
-        defaultContextMemoryOptions.paths.user,
-      journal:
-        contextMemorySettings?.paths?.journal ||
-        defaultContextMemoryOptions.paths.journal,
-    },
-    mcpImport: {
-      enabled:
-        contextMemorySettings?.mcpImport?.enabled ??
-        defaultContextMemoryOptions.mcpImport.enabled,
-      categories:
-        contextMemorySettings?.mcpImport?.categories ??
-        defaultContextMemoryOptions.mcpImport.categories,
-      scope:
-        contextMemorySettings?.mcpImport?.scope ??
-        defaultContextMemoryOptions.mcpImport.scope,
-    },
-  };
-
-  // Memory Mode: if mode is 'jit', disable JSON memory
-  if (memoryModeExplicit) {
-    contextMemoryOptions.enabled = memoryMode !== 'jit';
-  } else if (experimentalJitContext) {
-    contextMemoryOptions.enabled = false;
-  }
-
-  let memoryContent: HierarchicalMemory = { global: '', extension: '', project: '' };
+  let memoryContent: string | HierarchicalMemory = '';
   let fileCount = 0;
   let filePaths: string[] = [];
 
@@ -882,7 +795,6 @@ export async function loadCliConfig(
     userMemory: memoryContent,
     geminiMdFileCount: fileCount,
     geminiMdFilePaths: filePaths,
-    contextMemory: contextMemoryOptions,
     approvalMode,
     disableYoloMode:
       settings.security?.disableYoloMode || settings.admin?.secureModeEnabled,
@@ -891,7 +803,9 @@ export async function loadCliConfig(
       ...settings.ui?.accessibility,
       screenReader,
     },
-    notifications: settings.notifications,
+    notifications: {
+      ttsEnabled: settings.general?.enableNotifications ?? false,
+    },
     telemetry: telemetrySettings,
     usageStatisticsEnabled: settings.privacy?.usageStatisticsEnabled,
     fileFiltering,
@@ -967,7 +881,6 @@ export async function loadCliConfig(
         agents: refreshedSettings.merged.agents,
       };
     },
-    enableConseca: settings.security?.enableConseca,
   });
 }
 

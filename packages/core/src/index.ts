@@ -104,6 +104,7 @@ export * from './utils/package.js';
 export * from './utils/version.js';
 export * from './utils/checkpointUtils.js';
 export * from './utils/secure-browser-launcher.js';
+export * from './utils/termux-detect.js';
 export * from './utils/apiConversionUtils.js';
 export * from './utils/channel.js';
 export * from './utils/constants.js';
@@ -165,6 +166,7 @@ export * from './tools/mcp-tool.js';
 export * from './tools/write-todos.js';
 export * from './tools/activate-skill.js';
 export * from './tools/ask-user.js';
+export * from './tools/tts-notification.js';
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';

@@ -1,54 +1,62 @@
 # Changelog
 
-All notable changes to Gemini CLI Termux Edition will be documented in this file.
+All notable changes to Gemini CLI Termux Edition are documented here.
 
-## [0.30.0-termux] - WIP
+## [0.30.5-termux] - WIP
+
+### Based on
+
+- Upstream `v0.30.0-nightly.20260224.544df749a`
 
 ### Added
-- Merge upstream v0.30.0
-- New Plan Mode tools (EnterPlanModeTool, ExitPlanModeTool)
-- GetInternalDocs tool
-- Improved settings dialog
+
+- `tts_notification` Termux tool (`termux-tts-speak`)
+- Termux detection utility export (`termux-detect`)
+- Termux helper scripts (`scripts/termux-tools/*`, `scripts/termux-setup.sh`)
+- Patch integrity checker (`scripts/check-termux-patches.sh`)
+- `bundle/package.json` generation for update checks
 
 ### Changed
-- Updated PTY package to @mmmbuto/pty-termux-utils v1.1.4
-- Bundle now includes package.json for update checks
 
-## [0.28.2-termux] - 2026-02-02
-
-### Added
-- Context Memory integration (`~/.gemini/context_memory/`)
-- TTS Notification tool for Termux (`termux-tts-speak`)
-- Mobile settings layout for narrow terminals
+- Fork package naming/versioning (`@mmmbuto/gemini-cli-termux`, `*-termux`)
+- Android/Termux build path in `scripts/build.js`
+- `prepare`/`postinstall` flow for Termux installs
+- Browser URL opening uses `termux-open-url` on Android/Termux
+- Auto-update commands now use the installed package name dynamically
+- `bundle`/publish workflow rebuilt for Termux packaging (`prepublishOnly`)
 
 ### Fixed
-- PTY ARM64 support via prebuild binaries
-- Clipboard detection for Termux environment
-- Mobile filesystem guards
 
-## [0.28.0-termux] - 2026-01-30
+- PTY loading on Termux using `@mmmbuto/pty-termux-utils`
+- Browser launch/auth flow on Termux
+- Stale bundle metadata in packaged artifacts (`bundle/package.json`)
+
+## [0.30.4-termux] - Test
+
+### Notes
+
+- Internal test tag/package used during merge validation.
+
+## [0.30.3-termux] - 2026-02-24
+
+### Fixed
+
+- Added `termux-open-url` support in secure browser launcher
+
+## [0.30.2-termux] - 2026-02-24
+
+### Fixed
+
+- Use `termux-open-url` for browser opening on Android
+
+## [0.30.1-termux] - 2026-02-24
+
+### Fixed
+
+- `react-devtools-core` runtime resolution on Termux (empty-module alias)
+
+## [0.30.0-termux] - 2026-02-24
 
 ### Added
-- Initial Termux fork from Google Gemini CLI v0.28.0
-- PTY ARM64 prebuild (no node-gyp on device)
-- Termux-friendly clipboard detection
-- googleSearch tool fix for Android
 
----
-
-## Upstream Tracking
-
-This fork tracks [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli).
-
-| Termux Version | Upstream Version |
-|----------------|------------------|
-| 0.30.0-termux  | 0.30.0           |
-| 0.28.2-termux  | 0.28.2           |
-| 0.28.0-termux  | 0.28.0           |
-
-For full upstream changelog, see [upstream releases](https://github.com/google-gemini/gemini-cli/releases).
-
----
-
-**Maintainer**: @DioNanos
-**Repository**: https://github.com/DioNanos/gemini-cli-termux
+- Upstream v0.30.0 merge with Termux patchset refresh

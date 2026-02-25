@@ -34,7 +34,6 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
-// TERMUX PATCH: TTS Notification tool
 import { TtsNotificationTool } from '../tools/tts-notification.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
@@ -96,7 +95,6 @@ import type {
 import { ModelConfigService } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
 import { ContextManager } from '../services/contextManager.js';
-import { getDefaultContextMemoryOptions } from '../utils/contextMemory.js'; import type { ContextMemoryOptions } from '../utils/contextMemory.js';
 import type { GenerateContentParameters } from '@google/genai';
 
 // Re-export OAuth config type
@@ -134,11 +132,6 @@ import { isSubpath } from '../utils/paths.js';
 import { UserHintService } from './userHintService.js';
 import { WORKSPACE_POLICY_TIER } from '../policy/config.js';
 import { loadPoliciesFromToml } from '../policy/toml-loader.js';
-
-import { CheckerRunner } from '../safety/checker-runner.js';
-import { ContextBuilder } from '../safety/context-builder.js';
-import { CheckerRegistry } from '../safety/registry.js';
-import { ConsecaSafetyChecker } from '../safety/conseca/conseca.js';
 
 export interface AccessibilitySettings {
   /** @deprecated Use ui.loadingPhrases instead. */
@@ -431,7 +424,6 @@ export interface ConfigParameters {
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
   notifications?: NotificationSettings;
-  contextMemory?: ContextMemoryOptions;
   telemetry?: TelemetrySettings;
   usageStatisticsEnabled?: boolean;
   fileFiltering?: {
@@ -527,7 +519,6 @@ export interface ConfigParameters {
     adminSkillsEnabled?: boolean;
     agents?: AgentSettings;
   }>;
-  enableConseca?: boolean;
 }
 
 export class Config {
@@ -555,7 +546,6 @@ export class Config {
   private workspaceContext: WorkspaceContext;
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
-  readonly enableConseca: boolean;
 
   private readonly coreTools: string[] | undefined;
   /** @deprecated Use Policy Engine instead */
@@ -575,7 +565,6 @@ export class Config {
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly notifications: NotificationSettings;
-  private readonly contextMemory: ContextMemoryOptions;
   private readonly telemetrySettings: TelemetrySettings;
   private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
@@ -762,7 +751,6 @@ export class Config {
     this.showMemoryUsage = params.showMemoryUsage ?? false;
     this.accessibility = params.accessibility ?? {};
     this.notifications = params.notifications ?? {};
-    this.contextMemory = params.contextMemory ?? getDefaultContextMemoryOptions();
     this.telemetrySettings = {
       enabled: params.telemetry?.enabled ?? false,
       target: params.telemetry?.target ?? DEFAULT_TELEMETRY_TARGET,
@@ -888,35 +876,13 @@ export class Config {
     this.recordResponses = params.recordResponses;
     this.fileExclusions = new FileExclusions(this);
     this.eventEmitter = params.eventEmitter;
-    this.enableConseca = params.enableConseca ?? false;
-
-    // Initialize Safety Infrastructure
-    const contextBuilder = new ContextBuilder(this);
-    const checkersPath = this.targetDir;
-    // The checkersPath  is used to resolve external checkers. Since we do not have any external checkers currently, it is set to the targetDir.
-    const checkerRegistry = new CheckerRegistry(checkersPath);
-    const checkerRunner = new CheckerRunner(contextBuilder, checkerRegistry, {
-      checkersPath,
-      timeout: 30000, // 30 seconds to allow for LLM-based checkers
+    this.policyEngine = new PolicyEngine({
+      ...params.policyEngineConfig,
+      approvalMode:
+        params.approvalMode ?? params.policyEngineConfig?.approvalMode,
     });
     this.policyUpdateConfirmationRequest =
       params.policyUpdateConfirmationRequest;
-
-    this.policyEngine = new PolicyEngine(
-      {
-        ...params.policyEngineConfig,
-        approvalMode:
-          params.approvalMode ?? params.policyEngineConfig?.approvalMode,
-      },
-      checkerRunner,
-    );
-
-    // Register Conseca if enabled
-    if (this.enableConseca) {
-      debugLogger.log('[SAFETY] Registering Conseca Safety Checker');
-      ConsecaSafetyChecker.getInstance().setConfig(this);
-    }
-
     this.messageBus = new MessageBus(this.policyEngine, this.debugMode);
     this.acknowledgedAgentsService = new AcknowledgedAgentsService();
     this.skillManager = new SkillManager();
@@ -1956,6 +1922,10 @@ export class Config {
     return this.accessibility;
   }
 
+  isTtsEnabled(): boolean {
+    return this.notifications.ttsEnabled ?? false;
+  }
+
   getTelemetryEnabled(): boolean {
     return this.telemetrySettings.enabled ?? false;
   }
@@ -2791,20 +2761,6 @@ export class Config {
       );
     }
   };
-
-  /**
-   * Get context memory options from settings.
-   */
-  getContextMemoryOptions(): ContextMemoryOptions {
-    return this.contextMemory;
-  }
-
-  /**
-   * Check if TTS (Text-to-Speech) is enabled.
-   */
-  isTtsEnabled(): boolean {
-    return this.notifications.ttsEnabled ?? false;
-  }
 
   /**
    * Disposes of resources and removes event listeners.

@@ -12,4 +12,4 @@
 
 ## Known Issues
 
-- Context Memory feature had issues on Termux (fixed in v0.30.0-termux)
+- Session state file initialization had issues on Termux (fixed in later releases)
