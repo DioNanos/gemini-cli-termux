@@ -2,7 +2,7 @@
 
 All notable changes to Gemini CLI Termux Edition are documented here.
 
-## [0.30.5-termux] - WIP
+## [0.30.5-termux] - 2026-02-25
 
 ### Based on
 
