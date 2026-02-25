@@ -4,6 +4,7 @@ Runnable test checklists for Gemini CLI Termux Edition.
 
 ## Available Suites
 
+- `GEMINI-TEST-SUITE.md` - Full executable validation suite for published Termux package
 - `basic-smoke.md` - Termux runtime, PTY, browser/auth, TTS and packaging smoke checks
 
 ## Usage
