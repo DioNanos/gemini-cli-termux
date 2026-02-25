@@ -186,13 +186,7 @@ bash scripts/check-termux-patches.sh
 
 ## Disclaimer
 
-This is an independent community fork focused on making Gemini CLI reliable on
+This is an independent fork focused on making Gemini CLI reliable on
 Android/Termux.
 
 Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
-
-## Support
-
-If this project helps your mobile workflow, support:
-
-- Ko-fi: <https://ko-fi.com/dionanos>
