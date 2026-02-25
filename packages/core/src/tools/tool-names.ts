@@ -48,6 +48,10 @@ export const LS_TOOL_NAME_LEGACY = 'list_directory'; // Just to be safe if anyth
 
 export const EDIT_TOOL_NAMES = new Set([EDIT_TOOL_NAME, WRITE_FILE_TOOL_NAME]);
 
+// TERMUX PATCH: TTS Notification tool for Android/Termux
+export const TTS_NOTIFICATION_TOOL_NAME = 'tts_notification';
+export const TTS_NOTIFICATION_DISPLAY_NAME = 'TTS Notification';
+
 // Tool Display Names
 export const WRITE_FILE_DISPLAY_NAME = 'WriteFile';
 export const EDIT_DISPLAY_NAME = 'Edit';
@@ -110,6 +114,7 @@ export const ALL_BUILTIN_TOOL_NAMES = [
   GET_INTERNAL_DOCS_TOOL_NAME,
   ENTER_PLAN_MODE_TOOL_NAME,
   EXIT_PLAN_MODE_TOOL_NAME,
+  TTS_NOTIFICATION_TOOL_NAME,
 ] as const;
 
 /**

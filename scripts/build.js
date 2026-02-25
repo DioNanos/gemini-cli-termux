@@ -18,7 +18,7 @@
 // limitations under the License.
 
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,7 +32,38 @@ if (!existsSync(join(root, 'node_modules'))) {
 
 // build all workspaces/packages
 execSync('npm run generate', { stdio: 'inherit', cwd: root });
-execSync('npm run build --workspaces', { stdio: 'inherit', cwd: root });
+
+const isAndroid = process.platform === 'android';
+if (isAndroid) {
+  // On Termux skip VSCode companion (esbuild binary mismatch) but keep devtools for CLI typings/runtime imports
+  const workspaceDirs = [
+    'packages/core',
+    'packages/devtools',
+    'packages/cli',
+    'packages/test-utils',
+  ];
+  const workspaces = workspaceDirs.map((workspaceDir) => {
+    const pkgPath = join(root, workspaceDir, 'package.json');
+    try {
+      const pkgJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      return pkgJson?.name || workspaceDir;
+    } catch (error) {
+      console.warn(
+        `Could not read workspace name from ${pkgPath}, using path instead.`,
+        error,
+      );
+      return workspaceDir;
+    }
+  });
+  for (const ws of workspaces) {
+    execSync(`npm run build --workspace ${ws}`, {
+      stdio: 'inherit',
+      cwd: root,
+    });
+  }
+} else {
+  execSync('npm run build --workspaces', { stdio: 'inherit', cwd: root });
+}
 
 // also build container image if sandboxing is enabled
 // skip (-s) npm install + build since we did that above

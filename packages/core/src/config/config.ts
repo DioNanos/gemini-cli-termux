@@ -34,6 +34,7 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
+import { TtsNotificationTool } from '../tools/tts-notification.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
 import { GeminiClient } from '../core/client.js';
@@ -136,6 +137,10 @@ export interface AccessibilitySettings {
   /** @deprecated Use ui.loadingPhrases instead. */
   enableLoadingPhrases?: boolean;
   screenReader?: boolean;
+}
+
+export interface NotificationSettings {
+  ttsEnabled?: boolean;
 }
 
 export interface BugCommandSettings {
@@ -418,6 +423,7 @@ export interface ConfigParameters {
   showMemoryUsage?: boolean;
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
+  notifications?: NotificationSettings;
   telemetry?: TelemetrySettings;
   usageStatisticsEnabled?: boolean;
   fileFiltering?: {
@@ -558,6 +564,7 @@ export class Config {
   private geminiMdFilePaths: string[];
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
+  private readonly notifications: NotificationSettings;
   private readonly telemetrySettings: TelemetrySettings;
   private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
@@ -743,6 +750,7 @@ export class Config {
     this.geminiMdFilePaths = params.geminiMdFilePaths ?? [];
     this.showMemoryUsage = params.showMemoryUsage ?? false;
     this.accessibility = params.accessibility ?? {};
+    this.notifications = params.notifications ?? {};
     this.telemetrySettings = {
       enabled: params.telemetry?.enabled ?? false,
       target: params.telemetry?.target ?? DEFAULT_TELEMETRY_TARGET,
@@ -1914,6 +1922,10 @@ export class Config {
     return this.accessibility;
   }
 
+  isTtsEnabled(): boolean {
+    return this.notifications.ttsEnabled ?? false;
+  }
+
   getTelemetryEnabled(): boolean {
     return this.telemetrySettings.enabled ?? false;
   }
@@ -2593,6 +2605,10 @@ export class Config {
     );
     maybeRegister(AskUserTool, () =>
       registry.registerTool(new AskUserTool(this.messageBus)),
+    );
+    // TERMUX PATCH: TTS Notification tool
+    maybeRegister(TtsNotificationTool, () =>
+      registry.registerTool(new TtsNotificationTool(this, this.messageBus)),
     );
     if (this.getUseWriteTodos()) {
       maybeRegister(WriteTodosTool, () =>

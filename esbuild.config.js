@@ -54,7 +54,9 @@ function createWasmPlugins() {
   return [wasmBinaryPlugin, wasmLoader({ mode: 'embedded' })];
 }
 
+// TERMUX PATCH: Use our PTY package for Android ARM64, plus keytar from upstream
 const external = [
+  '@mmmbuto/node-pty-android-arm64',
   '@lydell/node-pty',
   'node-pty',
   '@lydell/node-pty-darwin-arm64',
@@ -81,8 +83,16 @@ const commonAliases = {
 
 const cliConfig = {
   ...baseConfig,
+  // TERMUX PATCH: Removed keepNames - was causing FileDiscoveryService → FileDiscoveryService2 rename
   banner: {
-    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url); globalThis.__filename = require('url').fileURLToPath(import.meta.url); globalThis.__dirname = require('path').dirname(globalThis.__filename);`,
+    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url); const { Buffer } = require('buffer'); globalThis.__filename = require('url').fileURLToPath(import.meta.url); globalThis.__dirname = require('path').dirname(globalThis.__filename);
+// TERMUX PATCH: Uint8Array base64 polyfill for web-tree-sitter on Node 22/24
+if (typeof Uint8Array.fromBase64 !== 'function') { Uint8Array.fromBase64 = (base64, _options) => { const buf = Buffer.from(base64, 'base64'); return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength); }; }
+if (typeof Uint8Array.prototype.toBase64 !== 'function') { Uint8Array.prototype.toBase64 = function (_options) { return Buffer.from(this).toString('base64'); }; }
+// TERMUX PATCH: clipboardy expects TERMUX__PREFIX but Termux sets PREFIX
+if (process.platform === 'android' && process.env.PREFIX && !process.env.TERMUX__PREFIX) { process.env.TERMUX__PREFIX = process.env.PREFIX; }
+// TERMUX PATCH: Suppress punycode deprecation warning on Android
+if (process.platform === 'android') { const _origEmit = process.emit; process.emit = function(name, data) { if (name === 'warning' && data && data.name === 'DeprecationWarning' && data.message && data.message.includes('punycode')) return false; return _origEmit.apply(process, arguments); }; }`,
   },
   entryPoints: ['packages/cli/index.ts'],
   outfile: 'bundle/gemini.js',
@@ -92,6 +102,10 @@ const cliConfig = {
   plugins: createWasmPlugins(),
   alias: {
     'is-in-ci': path.resolve(__dirname, 'packages/cli/src/patches/is-in-ci.ts'),
+    'react-devtools-core': path.resolve(
+      __dirname,
+      'packages/cli/src/patches/empty-module.ts',
+    ),
     ...commonAliases,
   },
   metafile: true,
@@ -117,15 +131,11 @@ Promise.allSettled([
       writeFileSync('./bundle/esbuild.json', JSON.stringify(metafile, null, 2));
     }
   }),
-  esbuild.build(a2aServerConfig),
+  // Skip a2a-server (not needed for Termux)
 ]).then((results) => {
-  const [cliResult, a2aResult] = results;
+  const [cliResult] = results;
   if (cliResult.status === 'rejected') {
     console.error('gemini.js build failed:', cliResult.reason);
     process.exit(1);
-  }
-  // error in a2a-server bundling will not stop gemini.js bundling process
-  if (a2aResult.status === 'rejected') {
-    console.warn('a2a-server build failed:', a2aResult.reason);
   }
 });

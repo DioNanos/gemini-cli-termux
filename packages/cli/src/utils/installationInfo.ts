@@ -34,6 +34,7 @@ export interface InstallationInfo {
 export function getInstallationInfo(
   projectRoot: string,
   isAutoUpdateEnabled: boolean,
+  packageName: string = '@google/gemini-cli',
 ): InstallationInfo {
   const cliPath = process.argv[1];
   if (!cliPath) {
@@ -110,7 +111,7 @@ export function getInstallationInfo(
       realPath.includes('/.pnpm/global') ||
       realPath.includes('/.local/share/pnpm')
     ) {
-      const updateCommand = 'pnpm add -g @google/gemini-cli@latest';
+      const updateCommand = `pnpm add -g ${packageName}@latest`;
       return {
         packageManager: PackageManager.PNPM,
         isGlobal: true,
@@ -123,7 +124,7 @@ export function getInstallationInfo(
 
     // Check for yarn
     if (realPath.includes('/.yarn/global')) {
-      const updateCommand = 'yarn global add @google/gemini-cli@latest';
+      const updateCommand = `yarn global add ${packageName}@latest`;
       return {
         packageManager: PackageManager.YARN,
         isGlobal: true,
@@ -143,7 +144,7 @@ export function getInstallationInfo(
       };
     }
     if (realPath.includes('/.bun/install/global')) {
-      const updateCommand = 'bun add -g @google/gemini-cli@latest';
+      const updateCommand = `bun add -g ${packageName}@latest`;
       return {
         packageManager: PackageManager.BUN,
         isGlobal: true,
@@ -176,7 +177,7 @@ export function getInstallationInfo(
     }
 
     // Assume global npm
-    const updateCommand = 'npm install -g @google/gemini-cli@latest';
+    const updateCommand = `npm install -g ${packageName}@latest`;
     return {
       packageManager: PackageManager.NPM,
       isGlobal: true,

@@ -82,7 +82,13 @@ export interface ShellExecutionResult {
   /** The process ID of the spawned shell. */
   pid: number | undefined;
   /** The method used to execute the shell command. */
-  executionMethod: 'lydell-node-pty' | 'node-pty' | 'child_process' | 'none';
+  executionMethod:
+    | 'mmmbuto-node-pty'
+    | 'lydell-node-pty-linux-arm64'
+    | 'lydell-node-pty'
+    | 'node-pty'
+    | 'child_process'
+    | 'none';
   /** Whether the command was moved to the background. */
   backgrounded?: boolean;
 }

@@ -17,7 +17,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { copyFileSync, existsSync, mkdirSync, cpSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  cpSync,
+  writeFileSync,
+  readFileSync,
+} from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { glob } from 'glob';
@@ -25,6 +32,7 @@ import { glob } from 'glob';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const bundleDir = join(root, 'bundle');
+const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8'));
 
 // Create the bundle directory if it doesn't exist
 if (!existsSync(bundleDir)) {
@@ -94,5 +102,17 @@ if (existsSync(devtoolsDistSrc)) {
   );
   console.log('Copied devtools package to bundle/node_modules/');
 }
+
+// TERMUX PATCH: Create package.json in bundle for update checks
+const bundlePackageJson = {
+  name: '@mmmbuto/gemini-cli-termux',
+  version: pkg.version,
+  type: 'module',
+};
+writeFileSync(
+  join(bundleDir, 'package.json'),
+  JSON.stringify(bundlePackageJson, null, 2),
+);
+console.log('Created bundle/package.json for termux updates');
 
 console.log('Assets copied to bundle/');

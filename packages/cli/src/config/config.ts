@@ -803,6 +803,9 @@ export async function loadCliConfig(
       ...settings.ui?.accessibility,
       screenReader,
     },
+    notifications: {
+      ttsEnabled: settings.general?.enableNotifications ?? false,
+    },
     telemetry: telemetrySettings,
     usageStatisticsEnabled: settings.privacy?.usageStatisticsEnabled,
     fileFiltering,

@@ -273,6 +273,10 @@ export const copyToClipboard = async (
 };
 
 export const getUrlOpenCommand = (): string => {
+  // TERMUX PATCH: Use termux-open-url on Android/Termux
+  if (process.platform === 'android') {
+    return 'termux-open-url';
+  }
   // --- Determine the OS-specific command to open URLs ---
   let openCmd: string;
   switch (process.platform) {
@@ -286,7 +290,6 @@ export const getUrlOpenCommand = (): string => {
       openCmd = 'xdg-open';
       break;
     default:
-      // Default to xdg-open, which appears to be supported for the less popular operating systems.
       openCmd = 'xdg-open';
       debugLogger.warn(
         `Unknown platform: ${process.platform}. Attempting to open URLs with: ${openCmd}.`,
