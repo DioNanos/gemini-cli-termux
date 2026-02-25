@@ -150,7 +150,7 @@ export function usePromptCompletion({
   }, [buffer.text, config, clearGhostText, isPromptCompletionEnabled]);
 
   const isCursorAtEnd = useCallback(() => {
-    const [cursorRow, cursorCol] = buffer.cursor;
+    const [cursorRow, cursorCol] = buffer.cursor || [0, 0];
     const totalLines = buffer.lines.length;
     if (cursorRow !== totalLines - 1) {
       return false;

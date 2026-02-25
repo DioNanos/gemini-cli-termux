@@ -340,7 +340,7 @@ export const InputPrompt = ({ buffer, onSubmit, userMessages, onClearScreen, con
         if (shellModeActive && keyMatchers[Command.REVERSE_SEARCH](key)) {
             setReverseSearchActive(true);
             setTextBeforeReverseSearch(buffer.text);
-            setCursorPosition(buffer.cursor);
+            setCursorPosition(buffer.cursor || [0, 0]);
             return;
         }
         if (keyMatchers[Command.CLEAR_SCREEN](key)) {
@@ -478,7 +478,7 @@ export const InputPrompt = ({ buffer, onSubmit, userMessages, onClearScreen, con
             if (keyMatchers[Command.REVERSE_SEARCH](key)) {
                 setCommandSearchActive(true);
                 setTextBeforeReverseSearch(buffer.text);
-                setCursorPosition(buffer.cursor);
+                setCursorPosition(buffer.cursor || [0, 0]);
                 return;
             }
             if (keyMatchers[Command.HISTORY_UP](key)) {
@@ -543,7 +543,7 @@ export const InputPrompt = ({ buffer, onSubmit, userMessages, onClearScreen, con
                     buffer.newline();
                     return;
                 }
-                const [row, col] = buffer.cursor;
+                const [row, col] = buffer.cursor || [0, 0];
                 const line = buffer.lines[row];
                 const charBefore = col > 0 ? cpSlice(line, col - 1, col) : '';
                 if (charBefore === '\\') {
@@ -665,8 +665,8 @@ export const InputPrompt = ({ buffer, onSubmit, userMessages, onClearScreen, con
         if (!ghostSuffix) {
             return { inlineGhost: '', additionalLines: [] };
         }
-        const currentLogicalLine = buffer.lines[buffer.cursor[0]] || '';
-        const cursorCol = buffer.cursor[1];
+        const currentLogicalLine = buffer.lines[buffer.cursor ? buffer.cursor[0] : 0] || '';
+        const cursorCol = buffer.cursor ? buffer.cursor[1] : 0;
         const textBeforeCursor = cpSlice(currentLogicalLine, 0, cursorCol);
         const usedWidth = stringWidth(textBeforeCursor);
         const remainingWidth = Math.max(0, inputWidth - usedWidth);
@@ -801,7 +801,7 @@ export const InputPrompt = ({ buffer, onSubmit, userMessages, onClearScreen, con
                             const [logicalLineIdx] = mapEntry;
                             const logicalLine = buffer.lines[logicalLineIdx] || '';
                             const transformations = buffer.transformationsByLine[logicalLineIdx] ?? [];
-                            const tokens = parseInputForHighlighting(logicalLine, logicalLineIdx, transformations, ...(focus && buffer.cursor[0] === logicalLineIdx
+                            const tokens = parseInputForHighlighting(logicalLine, logicalLineIdx, transformations, ...(focus && buffer.cursor && buffer.cursor[0] === logicalLineIdx
                                 ? [buffer.cursor[1]]
                                 : []));
                             const startColInTransformed = buffer.visualToTransformedMap[absoluteVisualIdx] ?? 0;

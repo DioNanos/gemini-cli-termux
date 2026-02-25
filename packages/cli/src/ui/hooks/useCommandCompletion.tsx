@@ -96,8 +96,8 @@ export function useCommandCompletion({
     navigateDown,
   } = useCompletion();
 
-  const cursorRow = buffer.cursor[0];
-  const cursorCol = buffer.cursor[1];
+  const cursorRow = buffer.cursor ? buffer.cursor[0] : 0;
+  const cursorCol = buffer.cursor ? buffer.cursor[1] : 0;
 
   const { completionMode, query, completionStart, completionEnd } =
     useMemo(() => {
