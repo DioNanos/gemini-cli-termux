@@ -190,3 +190,11 @@ This is an independent fork focused on making Gemini CLI reliable on
 Android/Termux.
 
 Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
+
+---
+
+## License
+
+Apache License 2.0 (upstream Google Gemini CLI) with Termux-port maintenance by Davide A. Guglielmi.<br>
+Original project by Google: https://github.com/google-gemini/gemini-cli<br>
+Made in Italy 🇮🇹
