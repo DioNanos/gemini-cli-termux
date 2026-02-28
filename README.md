@@ -10,7 +10,6 @@ Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
-[![ko-fi](https://img.shields.io/badge/Support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi)](https://ko-fi.com/dionanos)
 
 ## What Is This?
 
