@@ -196,5 +196,5 @@ Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
 
 Original project by Google: https://github.com/google-gemini/gemini-cli<br>
 Apache License 2.0 (upstream Google Gemini CLI)<br>
-Termux-port maintenance by Davide A. Guglielmi.<br>
+Termux-port maintenance by WellaNet.Dev<br>
 Made in Italy 🇮🇹
