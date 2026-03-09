@@ -5,7 +5,7 @@ Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).
 - Tracks upstream updates
 - Keeps a minimal Termux patch set (PTY, auth/browser, TTS, packaging fixes)
 - Fork releases use the `-termux` suffix (no nightly naming in fork releases)
-- Current fork version in this repository: `v0.32.1-termux`
+- Current fork version in this repository: `v0.32.2-termux`
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
@@ -40,7 +40,7 @@ Termux-specific patch set:
 - Termux-safe build/bundle scripts and packaging/version consistency fixes
 - Termux helper scripts (`scripts/termux-tools/*`, `scripts/termux-setup.sh`)
 
-Base for `0.32.1-termux`: upstream `v0.32.1`
+Base for `0.32.2-termux`: upstream `v0.32.1`
 
 ## Installation (Termux)
 
@@ -145,7 +145,7 @@ Test suites:
 
 Latest executable validation report:
 
-- [0.30.5-termux test report](./test-reports/0.30.5-termux/TEST-REPORT-2026-02-25.md)
+- [0.32.2-termux test report](./test-reports/0.32.2-termux/TEST-REPORT-2026-03-09.md)
 
 Reports index:
 
