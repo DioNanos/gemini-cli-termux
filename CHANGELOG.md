@@ -2,6 +2,33 @@
 
 All notable changes to Gemini CLI Termux Edition are documented here.
 
+## [0.32.1-termux] - 2026-03-09
+
+### Based on
+
+- Upstream `v0.32.1`
+
+### Added
+
+- Termux postinstall PTY self-heal for `@mmmbuto/node-pty-android-arm64` when
+  missing
+- Security audit command (`npm run audit:prod`) for release gating
+
+### Changed
+
+- PTY dependency model now centers on `@mmmbuto/pty-termux-utils` (native PTY
+  not declared at root)
+- Security dependency refresh for `tar`, `rollup`, `minimatch`, `hono`,
+  `@hono/node-server`, `express-rate-limit`
+- `@modelcontextprotocol/sdk` bumped to `^1.27.1` in core/cli/vscode companion
+- `scripts/check-termux-patches.sh` aligned to current merge state (no stale
+  esbuild marker check)
+
+### Fixed
+
+- Merge-audit consistency issues in README and patch checker
+- False-negative Termux patch validation after upstream v0.32.1 merge
+
 ## [0.30.5-termux] - 2026-02-25
 
 ### Based on

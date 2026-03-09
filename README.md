@@ -5,7 +5,7 @@ Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).
 - Tracks upstream updates
 - Keeps a minimal Termux patch set (PTY, auth/browser, TTS, packaging fixes)
 - Fork releases use the `-termux` suffix (no nightly naming in fork releases)
-- Current release: `v0.32.1-termux` (npm dist-tags `latest`, `test`)
+- Current fork version in this repository: `v0.32.1-termux`
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
@@ -33,14 +33,14 @@ environment assumptions can break install/runtime behavior.
 This fork keeps the upstream experience intact while applying a small,
 Termux-specific patch set:
 
-- ARM64 PTY support via `@mmmbuto/pty-termux-utils` +
-  `@mmmbuto/node-pty-android-arm64`
+- ARM64 PTY support via `@mmmbuto/pty-termux-utils` + managed native PTY
+  auto-repair in `postinstall`
 - `termux-open-url` integration for auth/browser flows
 - TTS tool support via `tts_notification` (`termux-tts-speak`)
 - Termux-safe build/bundle scripts and packaging/version consistency fixes
 - Termux helper scripts (`scripts/termux-tools/*`, `scripts/termux-setup.sh`)
 
-Base for `0.30.5-termux`: `v0.30.0-nightly.20260224.544df749a` (upstream)
+Base for `0.32.1-termux`: upstream `v0.32.1`
 
 ## Installation (Termux)
 
@@ -66,8 +66,7 @@ gemini --version
 
 ### Test channel (`test`)
 
-Use this to validate the current prerelease (`0.30.5-termux`) before promotion to
-`latest`:
+Use this to validate the current candidate before promotion to `latest`:
 
 ```bash
 npm install -g @mmmbuto/gemini-cli-termux@test
@@ -181,7 +180,6 @@ bash scripts/check-termux-patches.sh
 
 - [CHANGELOG.md](./CHANGELOG.md)
 - [test-reports/README.md](./test-reports/README.md)
-- `docs/TERMUX.md`
 
 ## Disclaimer
 
@@ -195,6 +193,5 @@ Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
 ## License
 
 Original project by Google: https://github.com/google-gemini/gemini-cli<br>
-Apache License 2.0 (upstream Google Gemini CLI)<br>
-Termux-port maintenance by WellaNet.Dev<br>
-Made in Italy 🇮🇹
+Apache License 2.0 (upstream Google Gemini CLI)<br> Termux-port maintenance by
+WellaNet.Dev<br> Made in Italy 🇮🇹

@@ -35,11 +35,11 @@ done
 echo ""
 echo "Checking patch content..."
 
-# Check esbuild banner
-if grep -q "TERMUX PATCH" esbuild.config.js; then
-  echo "  ✓ esbuild.config.js has TERMUX patches"
+# Check bundle metadata generation for fork package identity
+if grep -q "name: '@mmmbuto/gemini-cli-termux'" scripts/copy_bundle_assets.js; then
+  echo "  ✓ bundle metadata generation targets Termux fork package name"
 else
-  echo "  ✗ esbuild.config.js MISSING TERMUX patches"
+  echo "  ✗ bundle metadata generation missing Termux fork package name"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -51,11 +51,19 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# Check PTY deps
-if grep -q "@mmmbuto/pty-termux-utils" package.json && grep -q "@mmmbuto/node-pty-android-arm64" package.json; then
-  echo "  ✓ package.json has Termux PTY dependencies"
+# Check PTY dependency model
+if grep -q "@mmmbuto/pty-termux-utils" package.json && ! grep -q "\"@mmmbuto/node-pty-android-arm64\"" package.json; then
+  echo "  ✓ package.json has Termux PTY wrapper dependency (native PTY managed under wrapper)"
 else
-  echo "  ✗ package.json MISSING Termux PTY dependencies"
+  echo "  ✗ package.json PTY dependency model mismatch"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check postinstall PTY self-heal logic
+if grep -q "PTY_NATIVE_PACKAGE" scripts/postinstall.cjs && grep -q -- "--no-save" scripts/postinstall.cjs; then
+  echo "  ✓ postinstall has PTY self-heal flow"
+else
+  echo "  ✗ postinstall PTY self-heal flow missing"
   ERRORS=$((ERRORS + 1))
 fi
 
