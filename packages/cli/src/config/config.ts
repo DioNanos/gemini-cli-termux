@@ -873,6 +873,9 @@ export async function loadCliConfig(
     hooks: settings.hooks || {},
     disabledHooks: settings.hooksConfig?.disabled || [],
     projectHooks: projectHooks || {},
+    notifications: {
+      ttsEnabled: settings.general?.enableNotifications ?? false,
+    },
     onModelChange: (model: string) => saveModelChange(loadedSettings, model),
     onReload: async () => {
       const refreshedSettings = loadSettings(cwd);

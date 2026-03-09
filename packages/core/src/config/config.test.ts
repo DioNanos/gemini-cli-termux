@@ -1000,6 +1000,29 @@ describe('Server Config (config.ts)', () => {
     });
   });
 
+  describe('TTS notifications', () => {
+    it('should default to disabled when notifications are not provided', () => {
+      const config = new Config(baseParams);
+      expect(config.isTtsEnabled()).toBe(false);
+    });
+
+    it('should enable TTS when notifications.ttsEnabled is true', () => {
+      const config = new Config({
+        ...baseParams,
+        notifications: { ttsEnabled: true },
+      });
+      expect(config.isTtsEnabled()).toBe(true);
+    });
+
+    it('should disable TTS when notifications.ttsEnabled is false', () => {
+      const config = new Config({
+        ...baseParams,
+        notifications: { ttsEnabled: false },
+      });
+      expect(config.isTtsEnabled()).toBe(false);
+    });
+  });
+
   describe('Event Driven Scheduler Configuration', () => {
     it('should default enableEventDrivenScheduler to true when not provided', () => {
       const config = new Config(baseParams);

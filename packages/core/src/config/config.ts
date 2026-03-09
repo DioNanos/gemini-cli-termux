@@ -952,6 +952,7 @@ export class Config implements McpContext {
     this.fileExclusions = new FileExclusions(this);
     this.eventEmitter = params.eventEmitter;
     this.enableConseca = params.enableConseca ?? false;
+    this.notifications = params.notifications;
 
     // Initialize Safety Infrastructure
     const contextBuilder = new ContextBuilder(this);
