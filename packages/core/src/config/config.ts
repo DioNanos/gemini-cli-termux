@@ -35,6 +35,7 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
+import { TtsNotificationTool } from '../tools/tts-notification.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
 import { GeminiClient } from '../core/client.js';
@@ -143,7 +144,6 @@ import { loadPoliciesFromToml } from '../policy/toml-loader.js';
 import { CheckerRunner } from '../safety/checker-runner.js';
 import { ContextBuilder } from '../safety/context-builder.js';
 import { CheckerRegistry } from '../safety/registry.js';
-import { ConsecaSafetyChecker } from '../safety/conseca/conseca.js';
 
 export interface AccessibilitySettings {
   /** @deprecated Use ui.loadingPhrases instead. */
@@ -579,6 +579,9 @@ export interface ConfigParameters {
   billing?: {
     overageStrategy?: OverageStrategy;
   };
+  notifications?: {
+    ttsEnabled?: boolean;
+  };
 }
 
 export class Config implements McpContext {
@@ -607,6 +610,7 @@ export class Config implements McpContext {
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
   readonly enableConseca: boolean;
+  readonly notifications?: { ttsEnabled?: boolean };
 
   private readonly coreTools: string[] | undefined;
   /** @deprecated Use Policy Engine instead */
@@ -969,12 +973,6 @@ export class Config implements McpContext {
       },
       checkerRunner,
     );
-
-    // Register Conseca if enabled
-    if (this.enableConseca) {
-      debugLogger.log('[SAFETY] Registering Conseca Safety Checker');
-      ConsecaSafetyChecker.getInstance().setConfig(this);
-    }
 
     this.messageBus = new MessageBus(this.policyEngine, this.debugMode);
     this.acknowledgedAgentsService = new AcknowledgedAgentsService();
@@ -1586,6 +1584,11 @@ export class Config implements McpContext {
   }
   getQuestion(): string | undefined {
     return this.question;
+  }
+
+  // TERMUX PATCH: TTS support
+  isTtsEnabled(): boolean {
+    return this.notifications?.ttsEnabled ?? false;
   }
 
   getHasAccessToPreviewModel(): boolean {
@@ -2826,6 +2829,10 @@ export class Config implements McpContext {
     );
     maybeRegister(AskUserTool, () =>
       registry.registerTool(new AskUserTool(this.messageBus)),
+    );
+    // TERMUX PATCH: TTS Notification tool
+    maybeRegister(TtsNotificationTool, () =>
+      registry.registerTool(new TtsNotificationTool(this, this.messageBus)),
     );
     if (this.getUseWriteTodos()) {
       maybeRegister(WriteTodosTool, () =>

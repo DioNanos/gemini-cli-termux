@@ -585,6 +585,15 @@ export interface ToolResult {
    * Optional data payload for passing structured information back to the caller.
    */
   data?: Record<string, unknown>;
+
+  /**
+   * Optional request to execute another tool immediately after this one.
+   * The result of this tail call will replace the original tool's response.
+   */
+  tailToolCallRequest?: {
+    name: string;
+    args: Record<string, unknown>;
+  };
 }
 
 /**
@@ -763,6 +772,9 @@ export interface ToolMcpConfirmationDetails {
   serverName: string;
   toolName: string;
   toolDisplayName: string;
+  toolArgs?: Record<string, unknown>;
+  toolDescription?: string;
+  toolParameterSchema?: unknown;
   onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
 }
 
