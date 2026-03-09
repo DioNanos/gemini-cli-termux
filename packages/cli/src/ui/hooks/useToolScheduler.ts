@@ -114,6 +114,12 @@ export function useToolScheduler(
 
   useEffect(() => {
     const handler = (event: ToolCallsUpdateMessage) => {
+      // Only process updates for the root scheduler.
+      // Subagent internal tools should not be displayed in the main tool list.
+      if (event.schedulerId !== ROOT_SCHEDULER_ID) {
+        return;
+      }
+
       // Update output timer for UI spinners (Side Effect)
       if (event.toolCalls.some((tc) => tc.status === 'executing')) {
         setLastToolOutputTime(Date.now());
