@@ -117,8 +117,8 @@ export class TtsNotificationInvocation extends BaseToolInvocation<
 
   async execute(_signal: AbortSignal): Promise<ToolResult> {
     // Check if TTS is enabled in settings
-    if (!this.config.isTtsEnabled()) {
-      const msg = 'TTS notifications are disabled in settings.';
+    if (!isTermux()) {
+      const msg = 'TTS notifications are only available on Termux.';
       debugLogger.log('[TTS] Notification skipped:', msg);
       return {
         llmContent: msg,
