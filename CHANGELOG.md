@@ -2,6 +2,27 @@
 
 All notable changes to Gemini CLI Termux Edition are documented here.
 
+## [0.35.2-termux] - 2026-03-27
+
+### Based on
+
+- Upstream `v0.35.1`
+
+### Added
+
+- Termux detection utility export (`termux-detect`)
+- TTS notification tool (`tts_notification` via `termux-tts-speak`)
+- Termux helper scripts (`scripts/termux-tools/discovery.sh`, `call.sh`)
+- `termux-setup.sh` for environment setup
+- Patch integrity checker (`scripts/check-termux-patches.sh`)
+
+### Changed
+
+- Fork package naming/versioning (`@mmmbuto/gemini-cli-termux`, `*-termux`)
+- Browser URL opening uses `termux-open-url` on Android/Termux
+- PTY loading on Termux using `@mmmbuto/pty-termux-utils`
+- Postinstall self-heal for node-pty on Android ARM64
+
 ## [0.32.1-termux] - 2026-03-09
 
 ### Based on
