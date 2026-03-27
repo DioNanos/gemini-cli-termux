@@ -4,12 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// TERMUX PATCH: TTS Notification Tool
-// This tool allows the AI to proactively send text-to-speech notifications
 // when tasks complete or require attention, instead of relying on shell commands.
 
 import { exec } from 'node:child_process';
-import type { Config } from '../config/config.js';
+import { isTermux } from '../utils/termux-detect.js';
 import { debugLogger } from '../index.js';
 import {
   BaseDeclarativeTool,
@@ -34,7 +32,6 @@ export class TtsNotificationTool extends BaseDeclarativeTool<
   ToolResult
 > {
   constructor(
-    private readonly config: Config,
     messageBus: MessageBus,
   ) {
     super(
@@ -79,7 +76,6 @@ export class TtsNotificationTool extends BaseDeclarativeTool<
     toolDisplayName: string,
   ): TtsNotificationInvocation {
     return new TtsNotificationInvocation(
-      this.config,
       params,
       messageBus,
       toolName,
@@ -93,7 +89,6 @@ export class TtsNotificationInvocation extends BaseToolInvocation<
   ToolResult
 > {
   constructor(
-    private readonly config: Config,
     params: TtsNotificationParams,
     messageBus: MessageBus,
     toolName?: string,
