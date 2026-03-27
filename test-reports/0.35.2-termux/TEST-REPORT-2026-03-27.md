@@ -1,34 +1,11 @@
-# Test Report: v0.35.2-termux
+# Test Report - Gemini CLI Termux
+**Version:** 0.35.2-termux
+**Model:** Default (not specified)
+**Date:** 2026-03-27 12:14:12
+**Executed by:** Gemini Agent
 
-**Date**: 2026-03-27
-**Version**: 0.35.2-termux
-**Upstream**: v0.35.1
-
-## Build Status
-
-- [ ] Build completed successfully
-- [ ] Bundle generated
-- [ ] NPM package published
-
-## Basic Smoke Tests
-
-Run on Termux device:
-
-```bash
-gemini --version
-# Expected: 0.35.2-termux
-
-gemini -p "Reply OK"
-# Expected: OK
-```
-
-## Known Issues
-
-None reported.
-
-## Sign-off
-
-- [ ] Installation test
-- [ ] Basic smoke test
-- [ ] PTY functionality
-- [ ] TTS notification (if termux-api installed)
+| Category | Test Case | Command Executed | Result | Notes |
+|---|---|---|---|---|
+| Core | Base Prompt | gemini -p '...' | PASS | The output confirmed the Termux environment and gave a greeting. (Output: Hello! I'm running on Termux and ready to assist you.) |
+| Termux | PTY Execution | gemini -p 'run...' | PASS | The shell command output ('pty test') was captured successfully. |
+| Tools | File Read/Write | gemini -p 'Write...' | FAIL | The CLI's internal agent does not have access to the `write_file` or `replace` tools for file manipulation. (The external environment has write permissions, as proven by a direct test). |
