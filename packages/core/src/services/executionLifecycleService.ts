@@ -13,7 +13,9 @@ export type ExecutionMethod =
   | 'node-pty'
   | 'child_process'
   | 'remote_agent'
-  | 'none';
+  | 'none'
+  | 'mmmbuto-node-pty'
+  | 'lydell-node-pty-linux-arm64';
 
 export interface ExecutionResult {
   rawOutput: Buffer;

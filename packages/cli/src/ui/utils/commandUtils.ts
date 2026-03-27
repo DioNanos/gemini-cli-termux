@@ -10,29 +10,18 @@ import type { SlashCommand } from '../commands/types.js';
 import fs from 'node:fs';
 import type { Writable } from 'node:stream';
 import type { Settings } from '../../config/settingsSchema.js';
-import { AT_COMMAND_PATH_REGEX_SOURCE } from '../hooks/atCommandProcessor.js';
-
-// Pre-compiled regex for detecting @<path> patterns consistent with parseAllAtCommands.
-// Uses the same AT_COMMAND_PATH_REGEX_SOURCE so that isAtCommand is true whenever
-// parseAllAtCommands would find at least one atPath part.
-const AT_COMMAND_DETECT_REGEX = new RegExp(
-  `(?<!\\\\)@${AT_COMMAND_PATH_REGEX_SOURCE}`,
-);
 
 /**
  * Checks if a query string potentially represents an '@' command.
- * Returns true if the query contains any '@<path>' pattern that would be
- * recognised by the @ command processor, regardless of what character
- * precedes the '@' sign. This ensures that prompts written in an external
- * editor (where '@' may follow punctuation like ':' or '(') are correctly
- * identified and their referenced files pre-loaded before the query is sent
- * to the model.
+ * It triggers if the query starts with '@' or contains '@' preceded by whitespace
+ * and followed by a non-whitespace character.
  *
  * @param query The input query string.
  * @returns True if the query looks like an '@' command, false otherwise.
  */
 export const isAtCommand = (query: string): boolean =>
-  AT_COMMAND_DETECT_REGEX.test(query);
+  // Check if starts with @ OR has a space, then @
+  query.startsWith('@') || /\s@/.test(query);
 
 /**
  * Checks if a query string potentially represents an '/' command.
@@ -284,6 +273,10 @@ export const copyToClipboard = async (
 };
 
 export const getUrlOpenCommand = (): string => {
+  // TERMUX PATCH: Use termux-open-url on Android/Termux
+  if (process.platform === 'android') {
+    return 'termux-open-url';
+  }
   // --- Determine the OS-specific command to open URLs ---
   let openCmd: string;
   switch (process.platform) {
@@ -297,7 +290,6 @@ export const getUrlOpenCommand = (): string => {
       openCmd = 'xdg-open';
       break;
     default:
-      // Default to xdg-open, which appears to be supported for the less popular operating systems.
       openCmd = 'xdg-open';
       debugLogger.warn(
         `Unknown platform: ${process.platform}. Attempting to open URLs with: ${openCmd}.`,

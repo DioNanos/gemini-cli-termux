@@ -1,6 +1,6 @@
 # Makefile for gemini-cli
 
-.PHONY: help install build build-sandbox build-all test lint format preflight clean start debug release run-npx create-alias
+.PHONY: help install build build-sandbox build-all test lint format preflight clean start debug release run-npx create-alias termux-install termux-clean
 
 help:
 	@echo "Makefile for gemini-cli"
@@ -57,3 +57,17 @@ run-npx:
 
 create-alias:
 	scripts/create_alias.sh
+
+# TERMUX PATCH: Termux-specific targets
+termux-install:
+	@echo "=== Installing for Termux ==="
+	npm install
+	npm run build
+	npm run bundle
+	@echo ""
+	@echo "Done! Run: node bundle/gemini.js"
+
+termux-clean:
+	rm -rf node_modules
+	rm -f bundle/gemini.js
+	@echo "Cleaned node_modules and bundle"

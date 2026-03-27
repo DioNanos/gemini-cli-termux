@@ -174,6 +174,10 @@ export const TRACKER_LIST_TASKS_TOOL_NAME = 'tracker_list_tasks';
 export const TRACKER_ADD_DEPENDENCY_TOOL_NAME = 'tracker_add_dependency';
 export const TRACKER_VISUALIZE_TOOL_NAME = 'tracker_visualize';
 
+// TERMUX PATCH: TTS Notification tool for Android/Termux
+export const TTS_NOTIFICATION_TOOL_NAME = 'tts_notification';
+export const TTS_NOTIFICATION_DISPLAY_NAME = 'TTS Notification';
+
 // Tool Display Names
 export const WRITE_FILE_DISPLAY_NAME = 'WriteFile';
 export const EDIT_DISPLAY_NAME = 'Edit';
@@ -250,6 +254,7 @@ export const ALL_BUILTIN_TOOL_NAMES = [
   TRACKER_LIST_TASKS_TOOL_NAME,
   TRACKER_ADD_DEPENDENCY_TOOL_NAME,
   TRACKER_VISUALIZE_TOOL_NAME,
+  TTS_NOTIFICATION_TOOL_NAME,
   GET_INTERNAL_DOCS_TOOL_NAME,
   ENTER_PLAN_MODE_TOOL_NAME,
   EXIT_PLAN_MODE_TOOL_NAME,

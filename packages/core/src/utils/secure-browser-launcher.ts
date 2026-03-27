@@ -59,38 +59,44 @@ export async function openBrowserSecurely(url: string): Promise<void> {
   let command: string;
   let args: string[];
 
-  switch (platformName) {
-    case 'darwin':
-      // macOS
-      command = 'open';
-      args = [url];
-      break;
+  // TERMUX PATCH: Check for Android/Termux first
+  if (platformName === 'android') {
+    command = 'termux-open-url';
+    args = [url];
+  } else {
+    switch (platformName) {
+      case 'darwin':
+        // macOS
+        command = 'open';
+        args = [url];
+        break;
 
-    case 'win32':
-      // Windows - use PowerShell with Start-Process
-      // This avoids the cmd.exe shell which is vulnerable to injection
-      command = 'powershell.exe';
-      args = [
-        '-NoProfile',
-        '-NonInteractive',
-        '-WindowStyle',
-        'Hidden',
-        '-Command',
-        `Start-Process '${url.replace(/'/g, "''")}'`,
-      ];
-      break;
+      case 'win32':
+        // Windows - use PowerShell with Start-Process
+        // This avoids the cmd.exe shell which is vulnerable to injection
+        command = 'powershell.exe';
+        args = [
+          '-NoProfile',
+          '-NonInteractive',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          `Start-Process '${url.replace(/'/g, "''")}'`,
+        ];
+        break;
 
-    case 'linux':
-    case 'freebsd':
-    case 'openbsd':
-      // Linux and BSD variants
-      // Try xdg-open first, fall back to other options
-      command = 'xdg-open';
-      args = [url];
-      break;
+      case 'linux':
+      case 'freebsd':
+      case 'openbsd':
+        // Linux and BSD variants
+        // Try xdg-open first, fall back to other options
+        command = 'xdg-open';
+        args = [url];
+        break;
 
-    default:
-      throw new Error(`Unsupported platform: ${platformName}`);
+      default:
+        throw new Error(`Unsupported platform: ${platformName}`);
+    }
   }
 
   const options: Record<string, unknown> = {
@@ -148,6 +154,11 @@ export async function openBrowserSecurely(url: string): Promise<void> {
  * @returns True if the tool should attempt to launch a browser
  */
 export function shouldLaunchBrowser(): boolean {
+  // TERMUX PATCH: Always allow browser on Android/Termux
+  if (platform() === 'android') {
+    return true;
+  }
+
   // A list of browser names that indicate we should not attempt to open a
   // web browser for the user.
   const browserBlocklist = ['www-browser'];
