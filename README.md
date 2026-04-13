@@ -2,10 +2,10 @@
 
 Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).
 
-- Tracks upstream updates
+- Tracks upstream releases
 - Keeps a minimal Termux patch set (PTY, auth/browser, TTS, packaging fixes)
-- Fork releases use the `-termux` suffix (no nightly naming in fork releases)
-- Current fork version in this repository: `v0.35.0-termux`
+- Fork releases use the `-termux` suffix
+- Current fork version in this repository: `v0.37.1-termux`
 
 [![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
@@ -18,6 +18,10 @@ This repository provides a Termux-first build of Gemini CLI for Android.
 - Upstream project: <https://github.com/google-gemini/gemini-cli>
 - Upstream docs: <https://geminicli.com/docs/>
 - This fork: <https://github.com/DioNanos/gemini-cli-termux>
+- NPM package: <https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux>
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+- Test reports: [test-reports/README.md](./test-reports/README.md)
+- Upstream changelog: [docs/changelogs/latest.md](./docs/changelogs/latest.md)
 
 If you are not on Android/Termux, use the upstream package:
 
@@ -40,7 +44,7 @@ Termux-specific patch set:
 - Termux-safe build/bundle scripts and packaging/version consistency fixes
 - Termux helper scripts (`scripts/termux-tools/*`, `scripts/termux-setup.sh`)
 
-Base for `0.35.0-termux`: upstream `v0.35.1`
+Base for `v0.37.1-termux`: upstream `v0.37.1`
 
 ## Installation (Termux)
 

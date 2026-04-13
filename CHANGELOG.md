@@ -2,6 +2,42 @@
 
 All notable changes to Gemini CLI Termux Edition are documented here.
 
+## [0.37.1-termux] - 2026-04-13
+
+### Based on
+
+- Upstream `v0.37.1`
+
+### Added
+
+- Persistent browser session management (singleton cached, auto-reconnect)
+- TopicTool + topic state management for context window control
+- JSONL streaming for chat recording (performance improvement)
+- Context management refactor (services → context/)
+- Tool output distillation for context compression
+- Agent history provider (trajectory interface)
+- ACP mode: `/help` and `/about` commands
+- Tokyo Night theme
+- Parallel build optimization (core first, then parallel workspaces)
+- Sandbox denial utilities for better error diagnostics
+- Non-interactive policy mode
+
+### Changed
+
+- Version bump to 0.37.1-termux
+- Ink updated to 6.6.3
+- Sandbox image updated to 0.37.1-termux
+- Browser agent: persistent sessions with exponential backoff reconnect
+
+### Preserved from Previous Fork
+
+- Termux detection utility (`termux-detect`)
+- TTS notification tool (`tts_notification` via `termux-tts-speak`)
+- PTY self-heal (`@mmmbuto/pty-termux-utils`)
+- `termux-open-url` browser patch
+- Build skip VSCode on Android
+- Patch integrity checker (`scripts/check-termux-patches.sh`)
+
 ## [0.35.2-termux] - 2026-03-27
 
 ### Based on
