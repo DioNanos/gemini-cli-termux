@@ -1,74 +1,60 @@
-# Gemini CLI - Termux Edition
+<div align="center">
 
-Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).
+[![npm version](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Downloads](https://img.shields.io/npm/dm/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 
-- Tracks upstream releases
-- Keeps a minimal Termux patch set (PTY, auth/browser, TTS, packaging fixes)
-- Fork releases use the `-termux` suffix
-- Current fork version in this repository: `v0.37.1-termux`
+**A Termux-first build of Gemini CLI for Android.**
 
-[![npm](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux?style=flat-square&logo=npm)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
-[![downloads](https://img.shields.io/npm/dt/@mmmbuto/gemini-cli-termux?style=flat-square)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
+</div>
 
-## What Is This?
+> News (2026-04-13): `v0.37.1-termux` rebuilt from upstream `v0.37.1`. New:
+> persistent browser session management, TopicTool, JSONL chat recording,
+> context management refactor, tool output distillation, agent history provider,
+> ACP `/help` + `/about` commands, Tokyo Night theme, parallel build.
 
-This repository provides a Termux-first build of Gemini CLI for Android.
+Gemini CLI Termux is a clean fork of
+[google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli), rebuilt
+release-by-release from upstream and patched only where Android/Termux needs
+different behavior.
 
-- Upstream project: <https://github.com/google-gemini/gemini-cli>
-- Upstream docs: <https://geminicli.com/docs/>
-- This fork: <https://github.com/DioNanos/gemini-cli-termux>
-- NPM package: <https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux>
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
-- Test reports: [test-reports/README.md](./test-reports/README.md)
-- Upstream changelog: [docs/changelogs/latest.md](./docs/changelogs/latest.md)
+## Why a Termux fork?
 
-If you are not on Android/Termux, use the upstream package:
+Upstream targets desktop Unix and macOS first. On Android/Termux, the main
+breakpoints are:
 
-```bash
-npm install -g @google/gemini-cli
-```
+- PTY availability on ARM64
+- install-time scripts that are fine on desktop but noisy on Termux
+- browser auth flows that need `termux-open-url`
 
-## Why A Termux Fork?
+This fork keeps upstream behavior as close as possible while adding:
 
-Gemini CLI targets desktop platforms. On Termux/Android, a few dependencies and
-environment assumptions can break install/runtime behavior.
-
-This fork keeps the upstream experience intact while applying a small,
-Termux-specific patch set:
-
-- ARM64 PTY support via `@mmmbuto/pty-termux-utils` + managed native PTY
-  auto-repair in `postinstall`
+- Android ARM64 PTY support via `@mmmbuto/pty-termux-utils`
 - `termux-open-url` integration for auth/browser flows
-- TTS tool support via `tts_notification` (`termux-tts-speak`)
-- Termux-safe build/bundle scripts and packaging/version consistency fixes
-- Termux helper scripts (`scripts/termux-tools/*`, `scripts/termux-setup.sh`)
+- optional `tts_notification` tool backed by `termux-tts-speak`
+- Termux environment detection for runtime-specific behavior
+- release docs and test suites intended to be run directly inside Termux
 
-Base for `v0.37.1-termux`: upstream `v0.37.1`
+## Installation
 
-## Installation (Termux)
-
-### Prerequisites
+### Termux / Android
 
 ```bash
-pkg update && pkg upgrade -y
-pkg install -y nodejs-lts
-```
+pkg install nodejs-lts
+pkg install termux-api   # optional, only for TTS
 
-Optional but recommended:
-
-```bash
-pkg install -y termux-api
-```
-
-### Stable channel (`latest`)
-
-```bash
 npm install -g @mmmbuto/gemini-cli-termux@latest
 gemini --version
 ```
 
-### Test channel (`test`)
+Requirements:
+
+- [Termux from F-Droid](https://f-droid.org/packages/com.termux/)
+- Node.js 20+
+- `termux-api` only if you want TTS notifications
+
+### Test channel
 
 Use this to validate the current candidate before promotion to `latest`:
 
@@ -77,27 +63,26 @@ npm install -g @mmmbuto/gemini-cli-termux@test
 gemini --version
 ```
 
-### Update
+### Non-Termux platforms
+
+Use upstream:
 
 ```bash
-npm install -g @mmmbuto/gemini-cli-termux@latest
+npm install -g @google/gemini-cli
 ```
 
 ## Quick Start
 
-Interactive mode:
-
 ```bash
-cd /path/to/your/project
+cd your-project
 gemini
 ```
 
 Useful slash commands:
 
-```text
-/help
-/auth
-```
+- `/help`
+- `/auth`
+- `/model`
 
 Headless usage:
 
@@ -116,46 +101,47 @@ Interactive (recommended):
 /auth
 ```
 
-Android note: browser launch is handled via `termux-open-url`.
+Browser launch is handled via `termux-open-url` on Android.
 
-Headless/API key example:
+Headless/API key:
 
 ```bash
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
-## Termux Features
+## Termux-specific features
 
-- PTY-backed interactive shell support on Android ARM64
-- Auth/browser flow uses `termux-open-url`
-- TTS tool `tts_notification` uses `termux-tts-speak`
-- `bundle/package.json` generated for update/version checks
-- Patch integrity checker: `scripts/check-termux-patches.sh`
+### PTY support
 
-### TTS Tool
+The fork loads upstream PTY first, then falls back to
+`@mmmbuto/pty-termux-utils` for Android ARM64.
 
-The `tts_notification` tool is available in the fork and uses
-`termux-tts-speak`.
+### TTS notifications
 
-Enable notifications in `/settings` (`General -> Enable Notifications`) to allow
-TTS alerts.
+If `termux-api` is installed, the fork exposes a `tts_notification` tool that
+can speak short alerts:
 
-## Testing And Reports (Termux-Only)
+```bash
+termux-tts-speak "Gemini CLI Termux ready"
+```
 
-Test suites:
+### Patch verification
 
-- [Full executable suite](./test-reports/suites/GEMINI-TEST-SUITE.md)
-- [Basic smoke suite](./test-reports/suites/basic-smoke.md)
+After upstream merges or patch refreshes:
 
-Latest executable validation report:
+```bash
+bash scripts/check-termux-patches.sh
+```
 
-- [0.30.5-termux test report](./test-reports/0.30.5-termux/TEST-REPORT-2026-02-25.md)
+### Release testing from Termux
 
-Reports index:
+Run the documented Termux release checks from:
 
-- [test-reports/README.md](./test-reports/README.md)
+- [test-reports/README.md](test-reports/README.md)
+- [test-reports/suites/GEMINI-TEST-SUITE.md](test-reports/suites/GEMINI-TEST-SUITE.md)
+- [test-reports/suites/basic-smoke.md](test-reports/suites/basic-smoke.md)
 
-## Build From Source (Termux)
+## Building from source
 
 ```bash
 git clone https://github.com/DioNanos/gemini-cli-termux.git
@@ -172,30 +158,20 @@ Alternative helper:
 bash scripts/termux-setup.sh
 ```
 
-### Patch Verification
+## Troubleshooting
 
-Run after upstream merges / patch refresh:
+- If you are not on Termux, install upstream instead of this fork.
+- If shell execution is broken on Android, verify the PTY dependency is present.
+- If TTS does nothing, install `termux-api` and check `termux-tts-speak`.
+- For release validation, use the Termux suite in
+  [test-reports/README.md](test-reports/README.md).
 
-```bash
-bash scripts/check-termux-patches.sh
-```
+## Acknowledgments
 
-## Documentation
-
-- [CHANGELOG.md](./CHANGELOG.md)
-- [test-reports/README.md](./test-reports/README.md)
-
-## Disclaimer
-
-This is an independent fork focused on making Gemini CLI reliable on
-Android/Termux.
-
-Gemini CLI is an upstream project by Google, licensed under Apache-2.0.
-
----
+This fork is based on [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+and exists to keep a release-quality Termux track with minimal divergence from
+upstream.
 
 ## License
 
-Original project by Google: https://github.com/google-gemini/gemini-cli<br>
-Apache License 2.0 (upstream Google Gemini CLI)<br> Termux-port maintenance by
-Davide A. Guglielmi<br> Made in Italy 🇮🇹
+Apache-2.0
