@@ -8,6 +8,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LinuxSandboxManager } from './LinuxSandboxManager.js';
 import type { SandboxRequest } from '../../services/sandboxManager.js';
 import fs from 'node:fs';
+import path from 'node:path';
+import * as shellUtils from '../../utils/shell-utils.js';
 
 vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
@@ -20,17 +22,40 @@ vi.mock('node:fs', async () => {
       realpathSync: vi.fn((p) => p.toString()),
       statSync: vi.fn(() => ({ isDirectory: () => true }) as fs.Stats),
       mkdirSync: vi.fn(),
+      mkdtempSync: vi.fn((prefix: string) => prefix + 'mocked'),
       openSync: vi.fn(),
       closeSync: vi.fn(),
       writeFileSync: vi.fn(),
+      readdirSync: vi.fn(() => []),
+      chmodSync: vi.fn(),
+      unlinkSync: vi.fn(),
+      rmSync: vi.fn(),
     },
     existsSync: vi.fn(() => true),
     realpathSync: vi.fn((p) => p.toString()),
     statSync: vi.fn(() => ({ isDirectory: () => true }) as fs.Stats),
     mkdirSync: vi.fn(),
+    mkdtempSync: vi.fn((prefix: string) => prefix + 'mocked'),
     openSync: vi.fn(),
     closeSync: vi.fn(),
     writeFileSync: vi.fn(),
+    readdirSync: vi.fn(() => []),
+    chmodSync: vi.fn(),
+    unlinkSync: vi.fn(),
+    rmSync: vi.fn(),
+  };
+});
+
+vi.mock('../../utils/shell-utils.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/shell-utils.js')>();
+  return {
+    ...actual,
+    spawnAsync: vi.fn(() =>
+      Promise.resolve({ status: 0, stdout: Buffer.from('') }),
+    ),
+    initializeShellParsers: vi.fn(),
+    isStrictlyApproved: vi.fn().mockResolvedValue(true),
   };
 });
 
@@ -293,7 +318,7 @@ describe('LinuxSandboxManager', () => {
         );
       });
 
-      it('should not grant read-write access to allowedPaths inside the workspace when readonly mode is active', async () => {
+      it('should grant read-write access to allowedPaths inside the workspace even when readonly mode is active', async () => {
         const manager = new LinuxSandboxManager({
           workspace,
           modeConfig: { readonly: true },
@@ -309,7 +334,7 @@ describe('LinuxSandboxManager', () => {
         });
         const bwrapArgs = result.args;
         const bindIndex = bwrapArgs.indexOf(workspace + '/subdirectory');
-        expect(bwrapArgs[bindIndex - 1]).toBe('--ro-bind-try');
+        expect(bwrapArgs[bindIndex - 1]).toBe('--bind-try');
       });
 
       it('should not bind the workspace twice even if it has a trailing slash in allowedPaths', async () => {
@@ -326,6 +351,61 @@ describe('LinuxSandboxManager', () => {
         const binds = bwrapArgs.filter((a) => a === workspace);
         expect(binds.length).toBe(2);
       });
+
+      it('should bind the parent directory of a non-existent path', async () => {
+        vi.mocked(fs.existsSync).mockImplementation((p) => {
+          if (p === '/home/user/workspace/new-file.txt') return false;
+          return true;
+        });
+
+        const bwrapArgs = await getBwrapArgs({
+          command: '__write',
+          args: ['/home/user/workspace/new-file.txt'],
+          cwd: workspace,
+          env: {},
+          policy: {
+            allowedPaths: ['/home/user/workspace/new-file.txt'],
+          },
+        });
+
+        const parentDir = '/home/user/workspace';
+        const bindIndex = bwrapArgs.lastIndexOf(parentDir);
+        expect(bindIndex).not.toBe(-1);
+        expect(bwrapArgs[bindIndex - 2]).toBe('--bind-try');
+      });
+    });
+
+    describe('virtual commands', () => {
+      it('should translate __read to cat', async () => {
+        const testFile = path.join(workspace, 'file.txt');
+        const bwrapArgs = await getBwrapArgs({
+          command: '__read',
+          args: [testFile],
+          cwd: workspace,
+          env: {},
+        });
+
+        // args are: [...bwrapBaseArgs, '--', '/bin/cat', '.../file.txt']
+        expect(bwrapArgs[bwrapArgs.length - 2]).toBe('/bin/cat');
+        expect(bwrapArgs[bwrapArgs.length - 1]).toBe(testFile);
+      });
+
+      it('should translate __write to sh -c cat', async () => {
+        const testFile = path.join(workspace, 'file.txt');
+        const bwrapArgs = await getBwrapArgs({
+          command: '__write',
+          args: [testFile],
+          cwd: workspace,
+          env: {},
+        });
+
+        // args are: [...bwrapBaseArgs, '--', '/bin/sh', '-c', 'tee -- "$@" > /dev/null', '_', '.../file.txt']
+        expect(bwrapArgs[bwrapArgs.length - 5]).toBe('/bin/sh');
+        expect(bwrapArgs[bwrapArgs.length - 4]).toBe('-c');
+        expect(bwrapArgs[bwrapArgs.length - 3]).toBe('tee -- "$@" > /dev/null');
+        expect(bwrapArgs[bwrapArgs.length - 2]).toBe('_');
+        expect(bwrapArgs[bwrapArgs.length - 1]).toBe(testFile);
+      });
     });
 
     describe('forbiddenPaths', () => {
@@ -338,15 +418,20 @@ describe('LinuxSandboxManager', () => {
         });
         vi.mocked(fs.realpathSync).mockImplementation((p) => p.toString());
 
-        const bwrapArgs = await getBwrapArgs({
-          command: 'ls',
-          args: ['-la'],
-          cwd: workspace,
-          env: {},
-          policy: {
-            forbiddenPaths: ['/tmp/cache', '/opt/secret.txt'],
-          },
+        const customManager = new LinuxSandboxManager({
+          workspace,
+          forbiddenPaths: async () => ['/tmp/cache', '/opt/secret.txt'],
         });
+
+        const bwrapArgs = await getBwrapArgs(
+          {
+            command: 'ls',
+            args: ['-la'],
+            cwd: workspace,
+            env: {},
+          },
+          customManager,
+        );
 
         const cacheIndex = bwrapArgs.indexOf('/tmp/cache');
         expect(bwrapArgs[cacheIndex - 1]).toBe('--tmpfs');
@@ -365,15 +450,20 @@ describe('LinuxSandboxManager', () => {
           return p.toString();
         });
 
-        const bwrapArgs = await getBwrapArgs({
-          command: 'ls',
-          args: ['-la'],
-          cwd: workspace,
-          env: {},
-          policy: {
-            forbiddenPaths: ['/tmp/forbidden-symlink'],
-          },
+        const customManager = new LinuxSandboxManager({
+          workspace,
+          forbiddenPaths: async () => ['/tmp/forbidden-symlink'],
         });
+
+        const bwrapArgs = await getBwrapArgs(
+          {
+            command: 'ls',
+            args: ['-la'],
+            cwd: workspace,
+            env: {},
+          },
+          customManager,
+        );
 
         const secretIndex = bwrapArgs.indexOf('/opt/real-target.txt');
         expect(bwrapArgs[secretIndex - 2]).toBe('--ro-bind');
@@ -388,15 +478,20 @@ describe('LinuxSandboxManager', () => {
         });
         vi.mocked(fs.realpathSync).mockImplementation((p) => p.toString());
 
-        const bwrapArgs = await getBwrapArgs({
-          command: 'ls',
-          args: [],
-          cwd: workspace,
-          env: {},
-          policy: {
-            forbiddenPaths: ['/tmp/not-here.txt'],
-          },
+        const customManager = new LinuxSandboxManager({
+          workspace,
+          forbiddenPaths: async () => ['/tmp/not-here.txt'],
         });
+
+        const bwrapArgs = await getBwrapArgs(
+          {
+            command: 'ls',
+            args: [],
+            cwd: workspace,
+            env: {},
+          },
+          customManager,
+        );
 
         const idx = bwrapArgs.indexOf('/tmp/not-here.txt');
         expect(bwrapArgs[idx - 2]).toBe('--symlink');
@@ -412,15 +507,20 @@ describe('LinuxSandboxManager', () => {
           return p.toString();
         });
 
-        const bwrapArgs = await getBwrapArgs({
-          command: 'ls',
-          args: [],
-          cwd: workspace,
-          env: {},
-          policy: {
-            forbiddenPaths: ['/tmp/dir-link'],
-          },
+        const customManager = new LinuxSandboxManager({
+          workspace,
+          forbiddenPaths: async () => ['/tmp/dir-link'],
         });
+
+        const bwrapArgs = await getBwrapArgs(
+          {
+            command: 'ls',
+            args: [],
+            cwd: workspace,
+            env: {},
+          },
+          customManager,
+        );
 
         const idx = bwrapArgs.indexOf('/opt/real-dir');
         expect(bwrapArgs[idx - 1]).toBe('--tmpfs');
@@ -432,24 +532,73 @@ describe('LinuxSandboxManager', () => {
         );
         vi.mocked(fs.realpathSync).mockImplementation((p) => p.toString());
 
-        const bwrapArgs = await getBwrapArgs({
-          command: 'ls',
-          args: ['-la'],
-          cwd: workspace,
-          env: {},
-          policy: {
-            allowedPaths: ['/tmp/conflict'],
-            forbiddenPaths: ['/tmp/conflict'],
-          },
+        const customManager = new LinuxSandboxManager({
+          workspace,
+          forbiddenPaths: async () => ['/tmp/conflict'],
         });
 
-        const bindTryIdx = bwrapArgs.indexOf('--bind-try');
-        const tmpfsIdx = bwrapArgs.lastIndexOf('--tmpfs');
+        const bwrapArgs = await getBwrapArgs(
+          {
+            command: 'ls',
+            args: ['-la'],
+            cwd: workspace,
+            env: {},
+            policy: {
+              allowedPaths: ['/tmp/conflict'],
+            },
+          },
+          customManager,
+        );
 
-        expect(bwrapArgs[bindTryIdx + 1]).toBe('/tmp/conflict');
-        expect(bwrapArgs[tmpfsIdx + 1]).toBe('/tmp/conflict');
-        expect(tmpfsIdx).toBeGreaterThan(bindTryIdx);
+        // Conflict should have been filtered out of allow list (--bind-try)
+        expect(bwrapArgs).not.toContain('--bind-try');
+        expect(bwrapArgs).not.toContain('--bind-try-ro');
+
+        // It should only appear as a forbidden path (via --tmpfs)
+        const conflictIdx = bwrapArgs.indexOf('/tmp/conflict');
+        expect(conflictIdx).toBeGreaterThan(0);
+        expect(bwrapArgs[conflictIdx - 1]).toBe('--tmpfs');
       });
     });
+  });
+
+  it('blocks .env and .env.* files in the workspace root', async () => {
+    vi.mocked(shellUtils.spawnAsync).mockImplementation((cmd, args) => {
+      if (cmd === 'find' && args?.[0] === workspace) {
+        // Assert that find is NOT excluding dotfiles
+        expect(args).not.toContain('-not');
+        expect(args).toContain('-prune');
+
+        return Promise.resolve({
+          status: 0,
+          stdout: Buffer.from(
+            `${workspace}/.env\0${workspace}/.env.local\0${workspace}/.env.test\0`,
+          ),
+        } as unknown as ReturnType<typeof shellUtils.spawnAsync>);
+      }
+      return Promise.resolve({
+        status: 0,
+        stdout: Buffer.from(''),
+      } as unknown as ReturnType<typeof shellUtils.spawnAsync>);
+    });
+
+    const bwrapArgs = await getBwrapArgs({
+      command: 'ls',
+      args: [],
+      cwd: workspace,
+      env: {},
+    });
+
+    const bindsIndex = bwrapArgs.indexOf('--seccomp');
+    const binds = bwrapArgs.slice(0, bindsIndex);
+
+    expect(binds).toContain(`${workspace}/.env`);
+    expect(binds).toContain(`${workspace}/.env.local`);
+    expect(binds).toContain(`${workspace}/.env.test`);
+
+    // Verify they are bound to a mask file
+    const envIndex = binds.indexOf(`${workspace}/.env`);
+    expect(binds[envIndex - 2]).toBe('--bind');
+    expect(binds[envIndex - 1]).toMatch(/gemini-cli-mask-file-.*mocked\/mask/);
   });
 });

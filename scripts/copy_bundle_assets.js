@@ -103,6 +103,19 @@ if (existsSync(devtoolsDistSrc)) {
   console.log('Copied devtools package to bundle/node_modules/');
 }
 
+// 6. Copy bundled chrome-devtools-mcp
+const bundleMcpSrc = join(root, 'packages/core/dist/bundled');
+const bundleMcpDest = join(bundleDir, 'bundled');
+if (!existsSync(bundleMcpSrc)) {
+  console.error(
+    `Error: chrome-devtools-mcp bundle not found at ${bundleMcpSrc}.\n` +
+      `Run "npm run bundle:browser-mcp -w @google/gemini-cli-core" first.`,
+  );
+  process.exit(1);
+}
+cpSync(bundleMcpSrc, bundleMcpDest, { recursive: true, dereference: true });
+console.log('Copied bundled chrome-devtools-mcp to bundle/bundled/');
+
 // TERMUX PATCH: Create package.json in bundle for update checks
 const bundlePackageJson = {
   name: '@mmmbuto/gemini-cli-termux',

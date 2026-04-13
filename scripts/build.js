@@ -18,7 +18,7 @@
 // limitations under the License.
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,36 +33,49 @@ if (!existsSync(join(root, 'node_modules'))) {
 // build all workspaces/packages
 execSync('npm run generate', { stdio: 'inherit', cwd: root });
 
-const isAndroid = process.platform === 'android';
-if (isAndroid) {
-  // On Termux skip VSCode companion (esbuild binary mismatch) but keep devtools for CLI typings/runtime imports
+const isTermux =
+  process.platform === 'android' ||
+  process.env.TERMUX_VERSION ||
+  (process.env.PREFIX && process.env.PREFIX.includes('com.termux'));
+
+if (isTermux) {
+  // On Termux skip VSCode companion (esbuild binary mismatch) ma tiene devtools
   const workspaceDirs = [
     'packages/core',
     'packages/devtools',
     'packages/cli',
     'packages/test-utils',
   ];
-  const workspaces = workspaceDirs.map((workspaceDir) => {
-    const pkgPath = join(root, workspaceDir, 'package.json');
-    try {
-      const pkgJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-      return pkgJson?.name || workspaceDir;
-    } catch (error) {
-      console.warn(
-        `Could not read workspace name from ${pkgPath}, using path instead.`,
-        error,
-      );
-      return workspaceDir;
-    }
-  });
-  for (const ws of workspaces) {
-    execSync(`npm run build --workspace ${ws}`, {
+  for (const workspaceDir of workspaceDirs) {
+    execSync(`npm run build --workspace ${workspaceDir}`, {
       stdio: 'inherit',
       cwd: root,
     });
   }
-} else {
+} else if (process.env.CI) {
+  console.log('CI environment detected. Building workspaces sequentially...');
   execSync('npm run build --workspaces', { stdio: 'inherit', cwd: root });
+} else {
+  // Build core first because everyone depends on it
+  console.log('Building @google/gemini-cli-core...');
+  execSync('npm run build -w @google/gemini-cli-core', {
+    stdio: 'inherit',
+    cwd: root,
+  });
+
+  // Build the rest in parallel
+  console.log('Building other workspaces in parallel...');
+  const workspaceInfo = JSON.parse(
+    execSync('npm query .workspace --json', { cwd: root, encoding: 'utf-8' }),
+  );
+  const parallelWorkspaces = workspaceInfo
+    .map((w) => w.name)
+    .filter((name) => name !== '@google/gemini-cli-core');
+
+  execSync(
+    `npx npm-run-all --parallel ${parallelWorkspaces.map((w) => `"build -w ${w}"`).join(' ')}`,
+    { stdio: 'inherit', cwd: root },
+  );
 }
 
 // also build container image if sandboxing is enabled

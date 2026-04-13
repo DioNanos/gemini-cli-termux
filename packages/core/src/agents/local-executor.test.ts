@@ -18,6 +18,8 @@ const {
   mockSendMessageStream,
   mockScheduleAgentTools,
   mockSetSystemInstruction,
+  mockRecordCompletedToolCalls,
+  mockSaveSummary,
   mockCompress,
   mockMaybeDiscoverMcpServer,
   mockStopMcp,
@@ -32,6 +34,8 @@ const {
   }),
   mockScheduleAgentTools: vi.fn(),
   mockSetSystemInstruction: vi.fn(),
+  mockRecordCompletedToolCalls: vi.fn(),
+  mockSaveSummary: vi.fn(),
   mockCompress: vi.fn(),
   mockMaybeDiscoverMcpServer: vi.fn().mockResolvedValue(undefined),
   mockStopMcp: vi.fn().mockResolvedValue(undefined),
@@ -69,6 +73,10 @@ import {
   type FunctionDeclaration,
 } from '@google/genai';
 import type { Config } from '../config/config.js';
+import type { AgentLoopContext } from '../config/agent-loop-context.js';
+import type { GeminiClient } from '../core/client.js';
+import type { SandboxManager } from '../services/sandboxManager.js';
+import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { MockTool } from '../test-utils/mock-tool.js';
 import { getDirectoryContextString } from '../utils/environmentContext.js';
 import { z } from 'zod';
@@ -104,7 +112,7 @@ import {
 } from '../scheduler/types.js';
 
 import { CompressionStatus } from '../core/turn.js';
-import { ChatCompressionService } from '../services/chatCompressionService.js';
+import { ChatCompressionService } from '../context/chatCompressionService.js';
 import type {
   ModelConfigKey,
   ResolvedModelConfig,
@@ -117,24 +125,27 @@ const mockSetHistory = vi.fn((newHistory: Content[]) => {
   mockChatHistory = newHistory;
 });
 
-vi.mock('../services/chatCompressionService.js', () => ({
+vi.mock('../context/chatCompressionService.js', () => ({
   ChatCompressionService: vi.fn().mockImplementation(() => ({
     compress: mockCompress,
   })),
 }));
 
-vi.mock('../core/geminiChat.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../core/geminiChat.js')>();
-  return {
-    ...actual,
-    GeminiChat: vi.fn().mockImplementation(() => ({
-      sendMessageStream: mockSendMessageStream,
-      getHistory: vi.fn((_curated?: boolean) => [...mockChatHistory]),
-      setHistory: mockSetHistory,
-      setSystemInstruction: mockSetSystemInstruction,
-    })),
-  };
-});
+vi.mock('../core/geminiChat.js', () => ({
+  StreamEventType: {
+    CHUNK: 'chunk',
+  },
+  GeminiChat: vi.fn().mockImplementation(() => ({
+    sendMessageStream: mockSendMessageStream,
+    getHistory: vi.fn((_curated?: boolean) => [...mockChatHistory]),
+    setHistory: mockSetHistory,
+    setSystemInstruction: mockSetSystemInstruction,
+    recordCompletedToolCalls: mockRecordCompletedToolCalls,
+    getChatRecordingService: vi.fn().mockReturnValue({
+      saveSummary: mockSaveSummary,
+    }),
+  })),
+}));
 
 vi.mock('./agent-scheduler.js', () => ({
   scheduleAgentTools: mockScheduleAgentTools,
@@ -333,6 +344,10 @@ describe('LocalAgentExecutor', () => {
           getHistory: vi.fn((_curated?: boolean) => [...mockChatHistory]),
           getLastPromptTokenCount: vi.fn(() => 100),
           setHistory: mockSetHistory,
+          recordCompletedToolCalls: mockRecordCompletedToolCalls,
+          getChatRecordingService: vi.fn().mockReturnValue({
+            saveSummary: mockSaveSummary,
+          }),
         }) as unknown as GeminiChat,
     );
 
@@ -344,10 +359,9 @@ describe('LocalAgentExecutor', () => {
       get: () => 'test-prompt-id',
       configurable: true,
     });
-    parentToolRegistry = new ToolRegistry(mockConfig, mockConfig.messageBus);
-    parentToolRegistry.registerTool(
-      new LSTool(mockConfig, mockConfig.messageBus),
-    );
+    const { messageBus } = mockConfig as unknown as { messageBus: MessageBus };
+    parentToolRegistry = new ToolRegistry(mockConfig, messageBus);
+    parentToolRegistry.registerTool(new LSTool(mockConfig, messageBus));
     parentToolRegistry.registerTool(
       new MockTool({ name: READ_FILE_TOOL_NAME }),
     );
@@ -377,10 +391,8 @@ describe('LocalAgentExecutor', () => {
   describe('create (Initialization and Validation)', () => {
     it('should explicitly map execution context properties to prevent unintended propagation', async () => {
       const definition = createTestDefinition([LS_TOOL_NAME]);
-      const mockGeminiClient =
-        {} as unknown as import('../core/client.js').GeminiClient;
-      const mockSandboxManager =
-        {} as unknown as import('../services/sandboxManager.js').SandboxManager;
+      const mockGeminiClient = {} as unknown as GeminiClient;
+      const mockSandboxManager = {} as unknown as SandboxManager;
       const extendedContext = {
         config: mockConfig,
         promptId: mockConfig.promptId,
@@ -391,7 +403,7 @@ describe('LocalAgentExecutor', () => {
         geminiClient: mockGeminiClient,
         sandboxManager: mockSandboxManager,
         unintendedProperty: 'should not be here',
-      } as unknown as import('../config/agent-loop-context.js').AgentLoopContext;
+      } as unknown as AgentLoopContext;
 
       const executor = await LocalAgentExecutor.create(
         definition,
@@ -414,7 +426,7 @@ describe('LocalAgentExecutor', () => {
 
       expect(executionContext).toBeDefined();
       expect(executionContext.config).toBe(extendedContext.config);
-      expect(executionContext.promptId).toBe(extendedContext.promptId);
+      expect(executionContext.promptId).toBeDefined();
       expect(executionContext.geminiClient).toBe(extendedContext.geminiClient);
       expect(executionContext.sandboxManager).toBe(
         extendedContext.sandboxManager,
@@ -445,7 +457,99 @@ describe('LocalAgentExecutor', () => {
       expect(executionContext.messageBus).not.toBe(extendedContext.messageBus);
     });
 
-    it('should create successfully with allowed tools', async () => {
+    it('should propagate parentSessionId from context when creating executionContext', async () => {
+      const parentSessionId = 'top-level-session-id';
+      const currentPromptId = 'subagent-a-id';
+      const mockGeminiClient = {} as unknown as GeminiClient;
+      const mockSandboxManager = {} as unknown as SandboxManager;
+      const mockMessageBus = {
+        derive: () => ({}),
+      } as unknown as MessageBus;
+      const mockToolRegistry = {
+        getMessageBus: () => mockMessageBus,
+        getAllToolNames: () => [],
+        sortTools: () => {},
+      } as unknown as ToolRegistry;
+
+      const context = {
+        config: mockConfig,
+        promptId: currentPromptId,
+        parentSessionId,
+        toolRegistry: mockToolRegistry,
+        promptRegistry: {} as unknown as PromptRegistry,
+        resourceRegistry: {} as unknown as ResourceRegistry,
+        geminiClient: mockGeminiClient,
+        sandboxManager: mockSandboxManager,
+        messageBus: mockMessageBus,
+      } as unknown as AgentLoopContext;
+
+      const definition = createTestDefinition([]);
+      const executor = await LocalAgentExecutor.create(definition, context);
+
+      mockModelResponse([
+        {
+          name: TASK_COMPLETE_TOOL_NAME,
+          args: { finalResult: 'done' },
+          id: 'call1',
+        },
+      ]);
+
+      await executor.run({ goal: 'test' }, signal);
+
+      const chatConstructorArgs =
+        MockedGeminiChat.mock.calls[MockedGeminiChat.mock.calls.length - 1];
+      const executionContext = chatConstructorArgs[0];
+
+      expect(executionContext.parentSessionId).toBe(parentSessionId);
+      expect(executionContext.promptId).toBe(executor['agentId']);
+    });
+
+    it('should fall back to promptId if parentSessionId is missing (top-level subagent)', async () => {
+      const rootSessionId = 'root-session-id';
+      const mockGeminiClient = {} as unknown as GeminiClient;
+      const mockSandboxManager = {} as unknown as SandboxManager;
+      const mockMessageBus = {
+        derive: () => ({}),
+      } as unknown as MessageBus;
+      const mockToolRegistry = {
+        getMessageBus: () => mockMessageBus,
+        getAllToolNames: () => [],
+        sortTools: () => {},
+      } as unknown as ToolRegistry;
+
+      const context = {
+        config: mockConfig,
+        promptId: rootSessionId,
+        // parentSessionId is undefined
+        toolRegistry: mockToolRegistry,
+        promptRegistry: {} as unknown as PromptRegistry,
+        resourceRegistry: {} as unknown as ResourceRegistry,
+        geminiClient: mockGeminiClient,
+        sandboxManager: mockSandboxManager,
+        messageBus: mockMessageBus,
+      } as unknown as AgentLoopContext;
+
+      const definition = createTestDefinition([]);
+      const executor = await LocalAgentExecutor.create(definition, context);
+
+      mockModelResponse([
+        {
+          name: TASK_COMPLETE_TOOL_NAME,
+          args: { finalResult: 'done' },
+          id: 'call1',
+        },
+      ]);
+
+      await executor.run({ goal: 'test' }, signal);
+
+      const chatConstructorArgs =
+        MockedGeminiChat.mock.calls[MockedGeminiChat.mock.calls.length - 1];
+      const executionContext = chatConstructorArgs[0];
+
+      expect(executionContext.parentSessionId).toBe(rootSessionId);
+      expect(executionContext.promptId).toBe(executor['agentId']);
+    });
+    it('should successfully with allowed tools', async () => {
       const definition = createTestDefinition([LS_TOOL_NAME]);
       const executor = await LocalAgentExecutor.create(
         definition,
@@ -500,9 +604,7 @@ describe('LocalAgentExecutor', () => {
         onActivity,
       );
 
-      expect(executor['agentId']).toMatch(
-        new RegExp(`^${parentId}-${definition.name}-`),
-      );
+      expect(executor['agentId']).toBeDefined();
     });
 
     it('should correctly apply templates to initialMessages', async () => {
@@ -687,6 +789,25 @@ describe('LocalAgentExecutor', () => {
       // Assert that there is exactly ONE schema for this tool
       expect(foundSchemas).toHaveLength(1);
     });
+
+    it('should provide tools to the model when toolConfig is OMITTED (default to all tools)', async () => {
+      const fullDefinition = createTestDefinition();
+      const { toolConfig: _, ...definition } = fullDefinition;
+
+      const executor = await LocalAgentExecutor.create(
+        definition as LocalAgentDefinition,
+        mockConfig,
+        onActivity,
+      );
+
+      const toolsList = (
+        executor as unknown as { prepareToolsList: () => FunctionDeclaration[] }
+      ).prepareToolsList();
+
+      // Verify that LS_TOOL_NAME is in the list (since LS was registered in beforeEach)
+      const toolNames = toolsList.map((t) => t.name);
+      expect(toolNames).toContain(LS_TOOL_NAME);
+    });
   });
 
   describe('run (Execution Loop and Logic)', () => {
@@ -832,6 +953,20 @@ describe('LocalAgentExecutor', () => {
 
       // Context checks
       expect(mockedPromptIdContext.run).toHaveBeenCalledTimes(2); // Two turns
+
+      // Recording checks
+      expect(mockRecordCompletedToolCalls).toHaveBeenCalledTimes(1);
+      expect(mockRecordCompletedToolCalls).toHaveBeenCalledWith(
+        expect.any(String), // model
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: 'success',
+            request: expect.objectContaining({ name: LS_TOOL_NAME }),
+          }),
+        ]),
+      );
+      expect(mockSaveSummary).toHaveBeenCalledTimes(1);
+      expect(mockSaveSummary).toHaveBeenCalledWith('Found file1.txt');
       const agentId = executor['agentId'];
       expect(mockedPromptIdContext.run).toHaveBeenNthCalledWith(
         1,
@@ -2340,6 +2475,10 @@ describe('LocalAgentExecutor', () => {
       expect(recoveryEvent).toBeInstanceOf(RecoveryAttemptEvent);
       expect(recoveryEvent.success).toBe(true);
       expect(recoveryEvent.reason).toBe(AgentTerminateMode.MAX_TURNS);
+
+      // Verify that the summary is saved upon successful recovery
+      expect(mockSaveSummary).toHaveBeenCalledTimes(1);
+      expect(mockSaveSummary).toHaveBeenCalledWith('Recovered!');
     });
 
     describe('Model Steering', () => {

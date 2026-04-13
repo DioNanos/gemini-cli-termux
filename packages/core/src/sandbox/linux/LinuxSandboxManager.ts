@@ -5,7 +5,6 @@
  */
 
 import fs from 'node:fs';
-import { debugLogger } from '../../utils/debugLogger.js';
 import { join, dirname, normalize } from 'node:path';
 import os from 'node:os';
 import {
@@ -15,13 +14,18 @@ import {
   type SandboxedCommand,
   type SandboxPermissions,
   GOVERNANCE_FILES,
+  getSecretFileFindArgs,
   sanitizePaths,
+  type ParsedSandboxDenial,
+  resolveSandboxPaths,
 } from '../../services/sandboxManager.js';
+import type { ShellExecutionResult } from '../../services/shellExecutionService.js';
 import {
   sanitizeEnvironment,
   getSecureSanitizationConfig,
 } from '../../services/environmentSanitization.js';
-import { type SandboxPolicyManager } from '../../policy/sandboxPolicyManager.js';
+import { debugLogger } from '../../utils/debugLogger.js';
+import { spawnAsync } from '../../utils/shell-utils.js';
 import {
   isStrictlyApproved,
   verifySandboxOverrides,
@@ -32,6 +36,12 @@ import {
   resolveGitWorktreePaths,
   isErrnoException,
 } from '../utils/fsUtils.js';
+import {
+  isKnownSafeCommand,
+  isDangerousCommand,
+} from '../utils/commandSafety.js';
+import { parsePosixSandboxDenials } from '../utils/sandboxDenialUtils.js';
+import { handleReadWriteCommands } from '../utils/sandboxReadWriteUtils.js';
 
 let cachedBpfPath: string | undefined;
 
@@ -85,9 +95,20 @@ function getSeccompBpfPath(): string {
     buf.writeUInt32LE(inst.k, offset + 4);
   }
 
-  const bpfPath = join(os.tmpdir(), `gemini-cli-seccomp-${process.pid}.bpf`);
+  const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'gemini-cli-seccomp-'));
+  const bpfPath = join(tempDir, 'seccomp.bpf');
   fs.writeFileSync(bpfPath, buf);
   cachedBpfPath = bpfPath;
+
+  // Cleanup on exit
+  process.on('exit', () => {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore errors
+    }
+  });
+
   return bpfPath;
 }
 
@@ -110,27 +131,14 @@ function touch(filePath: string, isDirectory: boolean) {
   }
 }
 
-import {
-  isKnownSafeCommand,
-  isDangerousCommand,
-} from '../utils/commandSafety.js';
-
 /**
  * A SandboxManager implementation for Linux that uses Bubblewrap (bwrap).
  */
 
-export interface LinuxSandboxOptions extends GlobalSandboxOptions {
-  modeConfig?: {
-    readonly?: boolean;
-    network?: boolean;
-    approvedTools?: string[];
-    allowOverrides?: boolean;
-  };
-  policyManager?: SandboxPolicyManager;
-}
-
 export class LinuxSandboxManager implements SandboxManager {
-  constructor(private readonly options: LinuxSandboxOptions) {}
+  private static maskFilePath: string | undefined;
+
+  constructor(private readonly options: GlobalSandboxOptions) {}
 
   isKnownSafeCommand(args: string[]): boolean {
     return isKnownSafeCommand(args);
@@ -140,19 +148,62 @@ export class LinuxSandboxManager implements SandboxManager {
     return isDangerousCommand(args);
   }
 
+  parseDenials(result: ShellExecutionResult): ParsedSandboxDenial | undefined {
+    return parsePosixSandboxDenials(result);
+  }
+
+  private getMaskFilePath(): string {
+    if (
+      LinuxSandboxManager.maskFilePath &&
+      fs.existsSync(LinuxSandboxManager.maskFilePath)
+    ) {
+      return LinuxSandboxManager.maskFilePath;
+    }
+    const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'gemini-cli-mask-file-'));
+    const maskPath = join(tempDir, 'mask');
+    fs.writeFileSync(maskPath, '');
+    fs.chmodSync(maskPath, 0);
+    LinuxSandboxManager.maskFilePath = maskPath;
+
+    // Cleanup on exit
+    process.on('exit', () => {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {
+        // Ignore errors
+      }
+    });
+
+    return maskPath;
+  }
+
   async prepareCommand(req: SandboxRequest): Promise<SandboxedCommand> {
     const isReadonlyMode = this.options.modeConfig?.readonly ?? true;
     const allowOverrides = this.options.modeConfig?.allowOverrides ?? true;
 
     verifySandboxOverrides(allowOverrides, req.policy);
 
-    const commandName = await getCommandName(req);
+    let command = req.command;
+    let args = req.args;
+
+    // Translate virtual commands for sandboxed file system access
+    if (command === '__read') {
+      command = 'cat';
+    } else if (command === '__write') {
+      command = 'sh';
+      args = ['-c', 'cat > "$1"', '_', ...args];
+    }
+
+    const commandName = await getCommandName({ ...req, command, args });
     const isApproved = allowOverrides
-      ? await isStrictlyApproved(req, this.options.modeConfig?.approvedTools)
+      ? await isStrictlyApproved(
+          { ...req, command, args },
+          this.options.modeConfig?.approvedTools,
+        )
       : false;
     const workspaceWrite = !isReadonlyMode || isApproved;
     const networkAccess =
-      this.options.modeConfig?.network ?? req.policy?.networkAccess ?? false;
+      this.options.modeConfig?.network || req.policy?.networkAccess || false;
 
     const persistentPermissions = allowOverrides
       ? this.options.policyManager?.getCommandPermissions(commandName)
@@ -175,6 +226,13 @@ export class LinuxSandboxManager implements SandboxManager {
         req.policy?.additionalPermissions?.network ||
         false,
     };
+
+    const { command: finalCommand, args: finalArgs } = handleReadWriteCommands(
+      req,
+      mergedAdditional,
+      this.options.workspace,
+      req.policy?.allowedPaths,
+    );
 
     const sanitizationConfig = getSecureSanitizationConfig(
       req.policy?.sanitizationConfig,
@@ -237,26 +295,44 @@ export class LinuxSandboxManager implements SandboxManager {
       bwrapArgs.push(bindFlag, mainGitDir, mainGitDir);
     }
 
-    const allowedPaths = sanitizePaths(req.policy?.allowedPaths) || [];
-    const normalizedWorkspace = normalize(workspacePath).replace(/\/$/, '');
-    for (const allowedPath of allowedPaths) {
-      const resolved = tryRealpath(allowedPath);
-      if (!fs.existsSync(resolved)) continue;
-      const normalizedAllowedPath = normalize(resolved).replace(/\/$/, '');
-      if (normalizedAllowedPath !== normalizedWorkspace) {
-        if (
-          !workspaceWrite &&
-          normalizedAllowedPath.startsWith(normalizedWorkspace + '/')
-        ) {
-          bwrapArgs.push('--ro-bind-try', resolved, resolved);
-        } else {
-          bwrapArgs.push('--bind-try', resolved, resolved);
-        }
+    const includeDirs = sanitizePaths(this.options.includeDirectories);
+    for (const includeDir of includeDirs) {
+      try {
+        const resolved = tryRealpath(includeDir);
+        bwrapArgs.push('--ro-bind-try', resolved, resolved);
+      } catch {
+        // Ignore
       }
     }
 
-    const additionalReads =
-      sanitizePaths(mergedAdditional.fileSystem?.read) || [];
+    const { allowed: allowedPaths, forbidden: forbiddenPaths } =
+      await resolveSandboxPaths(this.options, req);
+
+    const normalizedWorkspace = normalize(workspacePath).replace(/\/$/, '');
+    for (const allowedPath of allowedPaths) {
+      const resolved = tryRealpath(allowedPath);
+      if (!fs.existsSync(resolved)) {
+        // If the path doesn't exist, we still want to allow access to its parent
+        // if it's explicitly allowed, to enable creating it.
+        try {
+          const resolvedParent = tryRealpath(dirname(resolved));
+          bwrapArgs.push(
+            req.command === '__write' ? '--bind-try' : bindFlag,
+            resolvedParent,
+            resolvedParent,
+          );
+        } catch {
+          // Ignore
+        }
+        continue;
+      }
+      const normalizedAllowedPath = normalize(resolved).replace(/\/$/, '');
+      if (normalizedAllowedPath !== normalizedWorkspace) {
+        bwrapArgs.push('--bind-try', resolved, resolved);
+      }
+    }
+
+    const additionalReads = sanitizePaths(mergedAdditional.fileSystem?.read);
     for (const p of additionalReads) {
       try {
         const safeResolvedPath = tryRealpath(p);
@@ -266,8 +342,7 @@ export class LinuxSandboxManager implements SandboxManager {
       }
     }
 
-    const additionalWrites =
-      sanitizePaths(mergedAdditional.fileSystem?.write) || [];
+    const additionalWrites = sanitizePaths(mergedAdditional.fileSystem?.write);
     for (const p of additionalWrites) {
       try {
         const safeResolvedPath = tryRealpath(p);
@@ -287,7 +362,6 @@ export class LinuxSandboxManager implements SandboxManager {
       }
     }
 
-    const forbiddenPaths = sanitizePaths(req.policy?.forbiddenPaths) || [];
     for (const p of forbiddenPaths) {
       let resolved: string;
       try {
@@ -319,10 +393,15 @@ export class LinuxSandboxManager implements SandboxManager {
       }
     }
 
+    // Mask secret files (.env, .env.*)
+    bwrapArgs.push(
+      ...(await this.getSecretFilesArgs(req.policy?.allowedPaths)),
+    );
+
     const bpfPath = getSeccompBpfPath();
 
     bwrapArgs.push('--seccomp', '9');
-    bwrapArgs.push('--', req.command, ...req.args);
+    bwrapArgs.push('--', finalCommand, ...finalArgs);
 
     const shArgs = [
       '-c',
@@ -338,5 +417,69 @@ export class LinuxSandboxManager implements SandboxManager {
       env: sanitizedEnv,
       cwd: req.cwd,
     };
+  }
+
+  /**
+   * Generates bubblewrap arguments to mask secret files.
+   */
+  private async getSecretFilesArgs(allowedPaths?: string[]): Promise<string[]> {
+    const args: string[] = [];
+    const maskPath = this.getMaskFilePath();
+    const paths = sanitizePaths(allowedPaths) || [];
+    const searchDirs = new Set([this.options.workspace, ...paths]);
+    const findPatterns = getSecretFileFindArgs();
+
+    for (const dir of searchDirs) {
+      try {
+        // Use the native 'find' command for performance and to catch nested secrets.
+        // We limit depth to 3 to keep it fast while covering common nested structures.
+        // We use -prune to skip heavy directories efficiently while matching dotfiles.
+        const findResult = await spawnAsync('find', [
+          dir,
+          '-maxdepth',
+          '3',
+          '-type',
+          'd',
+          '(',
+          '-name',
+          '.git',
+          '-o',
+          '-name',
+          'node_modules',
+          '-o',
+          '-name',
+          '.venv',
+          '-o',
+          '-name',
+          '__pycache__',
+          '-o',
+          '-name',
+          'dist',
+          '-o',
+          '-name',
+          'build',
+          ')',
+          '-prune',
+          '-o',
+          '-type',
+          'f',
+          ...findPatterns,
+          '-print0',
+        ]);
+
+        const files = findResult.stdout.toString().split('\0');
+        for (const file of files) {
+          if (file.trim()) {
+            args.push('--bind', maskPath, file.trim());
+          }
+        }
+      } catch (e) {
+        debugLogger.log(
+          `LinuxSandboxManager: Failed to find or mask secret files in ${dir}`,
+          e,
+        );
+      }
+    }
+    return args;
   }
 }
