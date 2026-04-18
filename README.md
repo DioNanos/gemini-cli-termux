@@ -1,85 +1,180 @@
-# Gemini CLI
+<div align="center">
 
-[![Gemini CLI CI](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml)
-[![Gemini CLI E2E (Chained)](https://github.com/google-gemini/gemini-cli/actions/workflows/chained_e2e.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/chained_e2e.yml)
-[![Version](https://img.shields.io/npm/v/@google/gemini-cli)](https://www.npmjs.com/package/@google/gemini-cli)
-[![License](https://img.shields.io/github/license/google-gemini/gemini-cli)](https://github.com/google-gemini/gemini-cli/blob/main/LICENSE)
-[![View Code Wiki](https://assets.codewiki.google/readme-badge/static.svg)](https://codewiki.google/github.com/google-gemini/gemini-cli?utm_source=badge&utm_medium=github&utm_campaign=github.com/google-gemini/gemini-cli)
+[![npm version](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Downloads](https://img.shields.io/npm/dm/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 
-![Gemini CLI Screenshot](/docs/assets/gemini-screenshot.png)
+**A Termux-first build of Gemini CLI for Android.**
 
-Gemini CLI is an open-source AI agent that brings the power of Gemini directly
-into your terminal. It provides lightweight access to Gemini, giving you the
-most direct path from your prompt to our model.
+</div>
 
-Learn all about Gemini CLI in our [documentation](https://geminicli.com/docs/).
+> News (2026-04-18): `v0.38.3-termux` rebases the fork onto upstream `v0.38.2`
+> and fixes npm/GitHub packaging hygiene. Restored: fork README, update command,
+> release docs, publish metadata, and clean Termux release flow.
 
-## 🚀 Why Gemini CLI?
+Gemini CLI Termux is a clean fork of
+[google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli), rebuilt
+release-by-release from upstream and patched only where Android/Termux needs
+different behavior.
 
-- **🎯 Free tier**: 60 requests/min and 1,000 requests/day with personal Google
-  account.
-- **🧠 Powerful Gemini 3 models**: Access to improved reasoning and 1M token
-  context window.
-- **🔧 Built-in tools**: Google Search grounding, file operations, shell
-  commands, web fetching.
-- **🔌 Extensible**: MCP (Model Context Protocol) support for custom
-  integrations.
-- **💻 Terminal-first**: Designed for developers who live in the command line.
-- **🛡️ Open source**: Apache 2.0 licensed.
+## Why a Termux fork?
 
-## 📦 Installation
+Upstream targets desktop Unix and macOS first. On Android/Termux, the main
+breakpoints are:
 
-See
-[Gemini CLI installation, execution, and releases](https://www.geminicli.com/docs/get-started/installation)
-for recommended system specifications and a detailed installation guide.
+- PTY availability on ARM64
+- install-time scripts that are fine on desktop but noisy on Termux
+- browser auth flows that need `termux-open-url`
 
-### Quick Install
+This fork keeps upstream behavior as close as possible while adding:
 
-#### Run instantly with npx
+- Android ARM64 PTY support via `@mmmbuto/pty-termux-utils`
+- `termux-open-url` integration for auth/browser flows
+- optional `tts_notification` tool backed by `termux-tts-speak`
+- Termux environment detection for runtime-specific behavior
+- release docs and test suites intended to be run directly inside Termux
+
+## Installation
+
+### Termux / Android
 
 ```bash
-# Using npx (no installation required)
-npx @google/gemini-cli
+pkg install nodejs-lts
+pkg install termux-api   # optional, only for TTS
+
+npm install -g @mmmbuto/gemini-cli-termux@latest
+gemini --version
 ```
 
-#### Install globally with npm
+Requirements:
+
+- [Termux from F-Droid](https://f-droid.org/packages/com.termux/)
+- Node.js 20+
+- `termux-api` only if you want TTS notifications
+
+### Test channel
+
+Use this to validate the current candidate before promotion to `latest`:
+
+```bash
+npm install -g @mmmbuto/gemini-cli-termux@test
+gemini --version
+```
+
+### Non-Termux platforms
+
+Use upstream:
 
 ```bash
 npm install -g @google/gemini-cli
 ```
 
-#### Install globally with Homebrew (macOS/Linux)
+## Quick Start
 
 ```bash
-brew install gemini-cli
+cd your-project
+gemini
 ```
 
-#### Install globally with MacPorts (macOS)
+Useful slash commands:
+
+- `/help`
+- `/auth`
+- `/model`
+
+Headless usage:
 
 ```bash
-sudo port install gemini-cli
+gemini -p "Explain the project structure" -o json
 ```
 
-#### Install with Anaconda (for restricted environments)
+## Authentication
+
+Termux supports the same authentication methods as upstream (Google login,
+Gemini API key, Vertex AI).
+
+Interactive (recommended):
+
+```text
+/auth
+```
+
+Browser launch is handled via `termux-open-url` on Android.
+
+Headless/API key:
 
 ```bash
-# Create and activate a new environment
-conda create -y -n gemini_env -c conda-forge nodejs
-conda activate gemini_env
-
-# Install Gemini CLI globally via npm (inside the environment)
-npm install -g @google/gemini-cli
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
-## Release Channels
+## Termux-specific features
 
-See [Releases](https://www.geminicli.com/docs/changelogs) for more details.
+### PTY support
 
-### Preview
+The fork loads upstream PTY first, then falls back to
+`@mmmbuto/pty-termux-utils` for Android ARM64.
 
-New preview releases will be published each week at UTC 23:59 on Tuesdays. These
-releases will not have been fully vetted and may contain regressions or other
-outstanding issues. Please help us test and install with `preview` tag.
+### TTS notifications
+
+If `termux-api` is installed, the fork exposes a `tts_notification` tool that
+can speak short alerts:
+
+```bash
+termux-tts-speak "Gemini CLI Termux ready"
+```
+
+### Patch verification
+
+After upstream merges or patch refreshes:
+
+```bash
+bash scripts/check-termux-patches.sh
+```
+
+### Release testing from Termux
+
+Run the documented Termux release checks from:
+
+- [test-reports/README.md](test-reports/README.md)
+- [test-reports/suites/GEMINI-TEST-SUITE.md](test-reports/suites/GEMINI-TEST-SUITE.md)
+- [test-reports/suites/basic-smoke.md](test-reports/suites/basic-smoke.md)
+
+## Building from source
+
+```bash
+git clone https://github.com/DioNanos/gemini-cli-termux.git
+cd gemini-cli-termux
+npm install
+npm run build
+npm run bundle
+node bundle/gemini.js --version
+```
+
+Alternative helper:
+
+```bash
+bash scripts/termux-setup.sh
+```
+
+## Troubleshooting
+
+- If you are not on Termux, install upstream instead of this fork.
+- If shell execution is broken on Android, verify the PTY dependency is present.
+- If TTS does nothing, install `termux-api` and check `termux-tts-speak`.
+- For release validation, use the Termux suite in
+  [test-reports/README.md](test-reports/README.md).
+
+## Acknowledgments
+
+This fork is based on [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+and exists to keep a release-quality Termux track with minimal divergence from
+upstream.
+
+## License
+
+Apache-2.0 releases will not have been fully vetted and may contain regressions
+or other outstanding issues. Please help us test and install with `preview` tag.
 
 ```bash
 npm install -g @google/gemini-cli@preview

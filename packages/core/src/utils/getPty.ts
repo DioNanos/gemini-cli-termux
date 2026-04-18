@@ -21,6 +21,38 @@ export interface PtyProcess {
   kill(signal?: string): void;
 }
 
+type TermuxPtySpawn = (...args: unknown[]) => {
+  pid: number;
+  on(event: 'data', callback: (data: string) => void): void;
+  on(event: 'exit', callback: (exitCode: number, signal: number) => void): void;
+  kill(): void;
+};
+
+type TermuxPtyImplementation = {
+  module: {
+    spawn: TermuxPtySpawn;
+  };
+  name: NonNullable<PtyImplementation>['name'];
+};
+
+function isTermuxPtyImplementation(
+  value: unknown,
+): value is TermuxPtyImplementation {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as {
+    module?: { spawn?: unknown };
+    name?: unknown;
+  };
+
+  return (
+    typeof candidate.module?.spawn === 'function' &&
+    typeof candidate.name === 'string'
+  );
+}
+
 export const getPty = async (): Promise<PtyImplementation> => {
   if (process.env['GEMINI_PTY_INFO'] === 'child_process') {
     return null;
@@ -31,23 +63,19 @@ export const getPty = async (): Promise<PtyImplementation> => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const termuxModule = await import(termuxPty);
     if (typeof termuxModule.getPty === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const impl = await termuxModule.getPty();
-      if (impl?.module?.spawn && impl?.name) {
+      const impl: unknown = await termuxModule.getPty();
+      if (isTermuxPtyImplementation(impl)) {
         const adaptedModule = {
           spawn: (...args: unknown[]) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const pty = impl.module.spawn(...args);
             return {
               ...pty,
               onData(callback: (data: string) => void) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                 pty.on('data', callback);
               },
               onExit(
                 callback: (e: { exitCode: number; signal?: number }) => void,
               ) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                 pty.on('exit', (exitCode: number, signal: number) => {
                   callback({
                     exitCode,
@@ -58,7 +86,6 @@ export const getPty = async (): Promise<PtyImplementation> => {
                 return { dispose() {} };
               },
               kill(_signal?: string) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                 pty.kill();
               },
             };
@@ -67,7 +94,7 @@ export const getPty = async (): Promise<PtyImplementation> => {
         return { module: adaptedModule, name: impl.name };
       }
     }
-  } catch (_e) {
+  } catch {
     // Fallback to upstream PTY implementations below
   }
 

@@ -1,6 +1,7 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.38.2-termux",
+  "version": "0.38.3-termux",
+  "description": "Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -8,13 +9,14 @@
   "workspaces": [
     "packages/*"
   ],
-  "private": "true",
+  "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/google-gemini/gemini-cli.git"
+    "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
   },
+  "homepage": "https://github.com/DioNanos/gemini-cli-termux#readme",
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.38.2-termux"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.38.3-termux"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",
@@ -67,7 +69,8 @@
     "check:lockfile": "node scripts/check-lockfile.js",
     "clean": "node scripts/clean.js",
     "pre-commit": "node scripts/pre-commit.js",
-    "postinstall": "node scripts/postinstall.cjs || true"
+    "postinstall": "node scripts/postinstall.cjs || true",
+    "prepublishOnly": "npm run build && npm run bundle"
   },
   "overrides": {
     "ink": "npm:@jrichman/ink@6.6.7",
@@ -86,6 +89,7 @@
   },
   "files": [
     "bundle/",
+    "scripts/postinstall.cjs",
     "README.md",
     "LICENSE"
   ],
@@ -141,22 +145,13 @@
     "@mmmbuto/pty-termux-utils": "^1.1.4",
     "ink": "npm:@jrichman/ink@6.6.7",
     "latest-version": "^9.0.0",
-    "node-fetch-native": "^1.6.7",
     "proper-lockfile": "^4.1.2",
     "punycode": "^2.3.1",
     "read-package-up": "^12.0.0",
     "simple-git": "^3.28.0"
   },
   "optionalDependencies": {
-    "@esbuild/android-arm64": "^0.27.1",
-    "@lydell/node-pty": "1.1.0",
-    "@lydell/node-pty-darwin-arm64": "1.1.0",
-    "@lydell/node-pty-darwin-x64": "1.1.0",
-    "@lydell/node-pty-linux-x64": "1.1.0",
-    "@lydell/node-pty-win32-arm64": "1.1.0",
-    "@lydell/node-pty-win32-x64": "1.1.0",
-    "keytar": "^7.9.0",
-    "node-pty": "^1.0.0"
+    "@esbuild/android-arm64": "^0.27.1"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

@@ -10,6 +10,8 @@ import { debugLogger } from '../utils/debugLogger.js';
 import { sanitizeOutput } from '../utils/textUtils.js';
 
 export type ExecutionMethod =
+  | 'mmmbuto-node-pty'
+  | 'lydell-node-pty-linux-arm64'
   | 'lydell-node-pty'
   | 'node-pty'
   | 'child_process'
