@@ -6,6 +6,7 @@
 
 import {
   diag,
+  Span,
   SpanStatusCode,
   trace,
   type AttributeValue,
