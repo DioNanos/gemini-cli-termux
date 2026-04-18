@@ -36,7 +36,7 @@ Ensure `gemini` is available in your PATH.
       appears)
 - [ ] Basic prompt works (`gemini -p "Say hello"`)
 - [ ] `--model` flag accepts a valid model name (e.g.,
-      `gemini -p "hello" --model "gemini-pro"`)
+      `gemini -p "hello" --model "gemini-3-pro-preview"`)
 - [ ] `/help` command in ACP mode displays general help
 - [ ] `/about` command in ACP mode displays information about the CLI
 - [ ] `TopicTool`: Can initiate a new topic and recall it (e.g.,
