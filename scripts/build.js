@@ -33,13 +33,13 @@ if (!existsSync(join(root, 'node_modules'))) {
 // build all workspaces/packages
 execSync('npm run generate', { stdio: 'inherit', cwd: root });
 
+// TERMUX PATCH: On Termux skip VSCode companion (esbuild binary mismatch)
 const isTermux =
   process.platform === 'android' ||
   process.env.TERMUX_VERSION ||
   (process.env.PREFIX && process.env.PREFIX.includes('com.termux'));
 
 if (isTermux) {
-  // On Termux skip VSCode companion (esbuild binary mismatch) ma tiene devtools
   const workspaceDirs = [
     'packages/core',
     'packages/devtools',

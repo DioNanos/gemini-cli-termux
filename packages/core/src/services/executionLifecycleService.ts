@@ -14,13 +14,12 @@ export type ExecutionMethod =
   | 'node-pty'
   | 'child_process'
   | 'remote_agent'
-  | 'none'
-  | 'mmmbuto-node-pty'
-  | 'lydell-node-pty-linux-arm64';
+  | 'none';
 
 export interface ExecutionResult {
   rawOutput?: Buffer;
   output: string;
+  ansiOutput?: AnsiOutput;
   exitCode: number | null;
   signal: number | null;
   error: Error | null;
@@ -454,10 +453,13 @@ export class ExecutionLifecycleService {
     } = options ?? {};
 
     const output = execution.getBackgroundOutput?.() ?? execution.output;
+    const snapshot = execution.getSubscriptionSnapshot?.();
+    const ansiOutput = Array.isArray(snapshot) ? snapshot : undefined;
 
     this.settleExecution(executionId, {
       rawOutput: Buffer.from(output, 'utf8'),
       output,
+      ansiOutput,
       exitCode,
       signal,
       error,

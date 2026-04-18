@@ -11,7 +11,11 @@ import { inspect } from 'node:util';
 import process from 'node:process';
 import { z } from 'zod';
 import type { ConversationRecord } from '../services/chatRecordingService.js';
-import type { AgentHistoryProviderConfig } from '../services/types.js';
+import type {
+  AgentHistoryProviderConfig,
+  ContextManagementConfig,
+  ToolOutputMaskingConfig,
+} from '../context/types.js';
 export type { ConversationRecord };
 import {
   AuthType,
@@ -39,9 +43,14 @@ import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
 import { UpdateTopicTool } from '../tools/topicTool.js';
 import { TopicState } from './topicState.js';
-import { TtsNotificationTool } from '../tools/tts-notification.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
+// TERMUX PATCH: TTS notification tool
+import { TtsNotificationTool } from '../tools/tts-notification.js';
+import {
+  ListBackgroundProcessesTool,
+  ReadBackgroundOutputTool,
+} from '../tools/shellBackgroundTools.js';
 import { GeminiClient } from '../core/client.js';
 import { BaseLlmClient } from '../core/baseLlmClient.js';
 import { LocalLiteRtLmClient } from '../core/localLiteRtLmClient.js';
@@ -117,7 +126,7 @@ import {
   type ModelConfigServiceConfig,
 } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
-import { ContextManager } from '../context/contextManager.js';
+import { MemoryContextManager } from '../context/memoryContextManager.js';
 import { TrackerService } from '../services/trackerService.js';
 import type { GenerateContentParameters } from '@google/genai';
 
@@ -125,6 +134,7 @@ import type { GenerateContentParameters } from '@google/genai';
 export type { MCPOAuthConfig, AnyToolInvocation, AnyDeclarativeTool };
 import type { AnyToolInvocation, AnyDeclarativeTool } from '../tools/tools.js';
 import { WorkspaceContext } from '../utils/workspaceContext.js';
+import { getWorkspaceContextOverride } from './scoped-config.js';
 import { Storage } from './storage.js';
 import type { ShellExecutionConfig } from '../services/shellExecutionService.js';
 import { FileExclusions } from '../utils/ignorePatterns.js';
@@ -152,7 +162,7 @@ import {
 } from '../code_assist/experiments/experiments.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { AcknowledgedAgentsService } from '../agents/acknowledgedAgents.js';
-import { setGlobalProxy } from '../utils/fetch.js';
+import { setGlobalProxy, updateGlobalFetchTimeouts } from '../utils/fetch.js';
 import { SubagentTool } from '../agents/subagent-tool.js';
 import { ExperimentFlags } from '../code_assist/experiments/flagNames.js';
 import { debugLogger } from '../utils/debugLogger.js';
@@ -207,38 +217,17 @@ export interface OutputSettings {
   format?: OutputFormat;
 }
 
-export interface ToolOutputMaskingConfig {
-  protectionThresholdTokens: number;
-  minPrunableThresholdTokens: number;
-  protectLatestTurn: boolean;
-}
-
-export interface ContextManagementConfig {
-  enabled: boolean;
-  historyWindow: {
-    maxTokens: number;
-    retainedTokens: number;
-  };
-  messageLimits: {
-    normalMaxTokens: number;
-    retainedMaxTokens: number;
-    normalizationHeadRatio: number;
-  };
-  tools: {
-    distillation: {
-      maxOutputTokens: number;
-      summarizationThresholdTokens: number;
-    };
-    outputMasking: ToolOutputMaskingConfig;
-  };
-}
-
 export interface GemmaModelRouterSettings {
   enabled?: boolean;
   classifier?: {
     host?: string;
     model?: string;
   };
+}
+
+export interface ADKSettings {
+  agentSessionNoninteractiveEnabled?: boolean;
+  agentSessionInteractiveEnabled?: boolean;
 }
 
 export interface ExtensionSetting {
@@ -370,7 +359,7 @@ export interface BrowserAgentCustomConfig {
   headless?: boolean;
   /** Path to Chrome profile directory for session persistence. */
   profilePath?: string;
-  /** Model override for the visual agent. */
+  /** Model for the visual agent's analyze_screenshot tool. When set, enables the tool. */
   visualModel?: string;
   /** List of allowed domains for the browser agent (e.g., ["github.com", "*.google.com"]). */
   allowedDomains?: string[];
@@ -522,6 +511,7 @@ export enum AuthProviderType {
 export interface SandboxConfig {
   enabled: boolean;
   allowedPaths?: string[];
+  includeDirectories?: string[];
   networkAccess?: boolean;
   command?:
     | 'docker'
@@ -538,6 +528,7 @@ export const ConfigSchema = z.object({
     .object({
       enabled: z.boolean().default(false),
       allowedPaths: z.array(z.string()).default([]),
+      includeDirectories: z.array(z.string()).default([]),
       networkAccess: z.boolean().default(false),
       command: z
         .enum([
@@ -662,6 +653,8 @@ export interface ConfigParameters {
   trustedFolder?: boolean;
   useBackgroundColor?: boolean;
   useAlternateBuffer?: boolean;
+  useTerminalBuffer?: boolean;
+  useRenderProcess?: boolean;
   useRipgrep?: boolean;
   enableInteractiveShell?: boolean;
   shellBackgroundCompletionBehavior?: string;
@@ -678,6 +671,7 @@ export interface ConfigParameters {
   policyUpdateConfirmationRequest?: PolicyUpdateConfirmationRequest;
   output?: OutputSettings;
   gemmaModelRouter?: GemmaModelRouterSettings;
+  adk?: ADKSettings;
   disableModelRouterForAuth?: AuthType[];
   continueOnFailedApiCall?: boolean;
   retryFetchErrors?: boolean;
@@ -879,6 +873,8 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly skipNextSpeakerCheck: boolean;
   private readonly useBackgroundColor: boolean;
   private readonly useAlternateBuffer: boolean;
+  private readonly useTerminalBuffer: boolean;
+  private readonly useRenderProcess: boolean;
   private shellExecutionConfig: ShellExecutionConfig;
   private readonly extensionManagement: boolean = true;
   private readonly extensionRegistryURI: string | undefined;
@@ -900,6 +896,8 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly outputSettings: OutputSettings;
 
   private readonly gemmaModelRouter: GemmaModelRouterSettings;
+  private readonly agentSessionNoninteractiveEnabled: boolean;
+  private readonly agentSessionInteractiveEnabled: boolean;
 
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
@@ -914,8 +912,8 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly acceptRawOutputRisk: boolean;
   private readonly dynamicModelConfiguration: boolean;
   private pendingIncludeDirectories: string[];
-  private readonly enableHooks: boolean;
   private readonly enableHooksUI: boolean;
+  private readonly enableHooks: boolean;
 
   private hooks: { [K in HookEventName]?: HookDefinition[] } | undefined;
   private projectHooks:
@@ -953,7 +951,7 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly trackerEnabled: boolean;
   private readonly planModeRoutingEnabled: boolean;
   private readonly modelSteering: boolean;
-  private contextManager?: ContextManager;
+  private memoryContextManager?: MemoryContextManager;
   private readonly contextManagement: ContextManagementConfig;
   private terminalBackground: string | undefined = undefined;
   private remoteAdminSettings: AdminControlsSettings | undefined;
@@ -973,6 +971,11 @@ export class Config implements McpContext, AgentLoopContext {
       ? {
           enabled: params.sandbox.enabled || params.toolSandboxing || false,
           allowedPaths: params.sandbox.allowedPaths ?? [],
+          includeDirectories: [
+            ...(params.sandbox.includeDirectories ?? []),
+            ...(params.sandbox.allowedPaths ?? []),
+            Storage.getGlobalTempDir(),
+          ],
           networkAccess: params.sandbox.networkAccess ?? false,
           command: params.sandbox.command,
           image: params.sandbox.image,
@@ -980,6 +983,7 @@ export class Config implements McpContext, AgentLoopContext {
       : {
           enabled: params.toolSandboxing || false,
           allowedPaths: [],
+          includeDirectories: [Storage.getGlobalTempDir()],
           networkAccess: false,
         };
 
@@ -1002,7 +1006,10 @@ export class Config implements McpContext, AgentLoopContext {
       {
         workspace: this.targetDir,
         forbiddenPaths: this.getSandboxForbiddenPaths.bind(this),
-        includeDirectories: this.pendingIncludeDirectories,
+        includeDirectories: [
+          ...this.pendingIncludeDirectories,
+          Storage.getGlobalTempDir(),
+        ],
         policyManager: this._sandboxPolicyManager,
       },
       initialApprovalMode,
@@ -1010,7 +1017,7 @@ export class Config implements McpContext, AgentLoopContext {
 
     if (
       !(this._sandboxManager instanceof NoopSandboxManager) &&
-      this.sandbox.enabled
+      this.sandbox?.enabled
     ) {
       this.fileSystemService = new SandboxedFileSystemService(
         this._sandboxManager,
@@ -1219,6 +1226,8 @@ export class Config implements McpContext, AgentLoopContext {
     this.useRipgrep = params.useRipgrep ?? true;
     this.useBackgroundColor = params.useBackgroundColor ?? true;
     this.useAlternateBuffer = params.useAlternateBuffer ?? false;
+    this.useTerminalBuffer = params.useTerminalBuffer ?? false;
+    this.useRenderProcess = params.useRenderProcess ?? true;
     this.enableInteractiveShell = params.enableInteractiveShell ?? false;
 
     const requestedBehavior = params.shellBackgroundCompletionBehavior;
@@ -1317,6 +1326,11 @@ export class Config implements McpContext, AgentLoopContext {
           params.gemmaModelRouter?.classifier?.model ?? 'gemma3-1b-gpu-custom',
       },
     };
+
+    this.agentSessionNoninteractiveEnabled =
+      params.adk?.agentSessionNoninteractiveEnabled ?? false;
+    this.agentSessionInteractiveEnabled =
+      params.adk?.agentSessionInteractiveEnabled ?? false;
     this.retryFetchErrors = params.retryFetchErrors ?? true;
     this.maxAttempts = Math.min(
       params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
@@ -1481,8 +1495,8 @@ export class Config implements McpContext, AgentLoopContext {
     }
 
     if (this.experimentalJitContext) {
-      this.contextManager = new ContextManager(this);
-      await this.contextManager.refresh();
+      this.memoryContextManager = new MemoryContextManager(this);
+      await this.memoryContextManager.refresh();
     }
 
     await this._geminiClient.initialize();
@@ -1536,9 +1550,6 @@ export class Config implements McpContext, AgentLoopContext {
     // Only assign to instance properties after successful initialization
     this.contentGeneratorConfig = newContentGeneratorConfig;
 
-    // Initialize BaseLlmClient now that the ContentGenerator is available
-    this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
-
     const codeAssistServer = getCodeAssistServer(this);
     const quotaPromise = codeAssistServer?.projectId
       ? this.refreshUserQuota()
@@ -1553,6 +1564,17 @@ export class Config implements McpContext, AgentLoopContext {
         debugLogger.error('Failed to fetch experiments', e);
         return undefined;
       });
+
+    // Fetch experiments and update timeouts before continuing initialization
+    const experiments = await this.experimentsPromise;
+
+    const requestTimeoutMs = this.getRequestTimeoutMs();
+    if (requestTimeoutMs !== undefined) {
+      updateGlobalFetchTimeouts(requestTimeoutMs);
+    }
+
+    // Initialize BaseLlmClient now that the ContentGenerator and experiments are available
+    this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
 
     await quotaPromise;
 
@@ -1572,9 +1594,6 @@ export class Config implements McpContext, AgentLoopContext {
     ) {
       this.setModel(DEFAULT_GEMINI_MODEL_AUTO);
     }
-
-    // Fetch admin controls
-    const experiments = await this.experimentsPromise;
 
     const adminControlsEnabled =
       experiments?.flags[ExperimentFlags.ENABLE_ADMIN_CONTROLS]?.boolValue ??
@@ -1621,6 +1640,11 @@ export class Config implements McpContext, AgentLoopContext {
   getBaseLlmClient(): BaseLlmClient {
     if (!this.baseLlmClient) {
       // Handle cases where initialization might be deferred or authentication failed
+      if (!this.experiments) {
+        throw new Error(
+          'BaseLlmClient not initialized. Ensure experiments have been fetched and configuration is ready.',
+        );
+      }
       if (this.contentGenerator) {
         this.baseLlmClient = new BaseLlmClient(
           this.getContentGenerator(),
@@ -1705,6 +1729,10 @@ export class Config implements McpContext, AgentLoopContext {
       {
         workspace: this.targetDir,
         forbiddenPaths: this.getSandboxForbiddenPaths.bind(this),
+        includeDirectories: [
+          ...this.pendingIncludeDirectories,
+          Storage.getGlobalTempDir(),
+        ],
         policyManager: this._sandboxPolicyManager,
       },
       this.getApprovalMode(),
@@ -1983,7 +2011,12 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getSandboxAllowedPaths(): string[] {
-    return this.sandbox?.allowedPaths ?? [];
+    const paths = [...(this.sandbox?.allowedPaths ?? [])];
+    const globalTempDir = Storage.getGlobalTempDir();
+    if (!paths.includes(globalTempDir)) {
+      paths.push(globalTempDir);
+    }
+    return paths;
   }
 
   getSandboxNetworkAccess(): boolean {
@@ -2011,7 +2044,7 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getWorkspaceContext(): WorkspaceContext {
-    return this.workspaceContext;
+    return getWorkspaceContextOverride() ?? this.workspaceContext;
   }
 
   getAgentRegistry(): AgentRegistry {
@@ -2290,12 +2323,12 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getUserMemory(): string | HierarchicalMemory {
-    if (this.experimentalJitContext && this.contextManager) {
+    if (this.experimentalJitContext && this.memoryContextManager) {
       return {
-        global: this.contextManager.getGlobalMemory(),
-        extension: this.contextManager.getExtensionMemory(),
-        project: this.contextManager.getEnvironmentMemory(),
-        userProjectMemory: this.contextManager.getUserProjectMemory(),
+        global: this.memoryContextManager.getGlobalMemory(),
+        extension: this.memoryContextManager.getExtensionMemory(),
+        project: this.memoryContextManager.getEnvironmentMemory(),
+        userProjectMemory: this.memoryContextManager.getUserProjectMemory(),
       };
     }
     return this.userMemory;
@@ -2305,8 +2338,8 @@ export class Config implements McpContext, AgentLoopContext {
    * Refreshes the MCP context, including memory, tools, and system instructions.
    */
   async refreshMcpContext(): Promise<void> {
-    if (this.experimentalJitContext && this.contextManager) {
-      await this.contextManager.refresh();
+    if (this.experimentalJitContext && this.memoryContextManager) {
+      await this.memoryContextManager.refresh();
     } else {
       const { refreshServerHierarchicalMemory } = await import(
         '../utils/memoryDiscovery.js'
@@ -2332,9 +2365,10 @@ export class Config implements McpContext, AgentLoopContext {
    * via system instruction updates.
    */
   getSystemInstructionMemory(): string | HierarchicalMemory {
-    if (this.experimentalJitContext && this.contextManager) {
-      const global = this.contextManager.getGlobalMemory();
-      const userProjectMemory = this.contextManager.getUserProjectMemory();
+    if (this.experimentalJitContext && this.memoryContextManager) {
+      const global = this.memoryContextManager.getGlobalMemory();
+      const userProjectMemory =
+        this.memoryContextManager.getUserProjectMemory();
       if (userProjectMemory?.trim()) {
         return { global, userProjectMemory };
       }
@@ -2349,12 +2383,12 @@ export class Config implements McpContext, AgentLoopContext {
    * disabled (Tier 2 memory is already in the system instruction).
    */
   getSessionMemory(): string {
-    if (!this.experimentalJitContext || !this.contextManager) {
+    if (!this.experimentalJitContext || !this.memoryContextManager) {
       return '';
     }
     const sections: string[] = [];
-    const extension = this.contextManager.getExtensionMemory();
-    const project = this.contextManager.getEnvironmentMemory();
+    const extension = this.memoryContextManager.getExtensionMemory();
+    const project = this.memoryContextManager.getEnvironmentMemory();
     if (extension?.trim()) {
       sections.push(
         `<extension_context>\n${extension.trim()}\n</extension_context>`,
@@ -2368,22 +2402,22 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getGlobalMemory(): string {
-    return this.contextManager?.getGlobalMemory() ?? '';
+    return this.memoryContextManager?.getGlobalMemory() ?? '';
   }
 
   getEnvironmentMemory(): string {
-    return this.contextManager?.getEnvironmentMemory() ?? '';
+    return this.memoryContextManager?.getEnvironmentMemory() ?? '';
   }
 
-  getContextManager(): ContextManager | undefined {
-    return this.contextManager;
+  getMemoryContextManager(): MemoryContextManager | undefined {
+    return this.memoryContextManager;
   }
 
   isJitContextEnabled(): boolean {
     return this.experimentalJitContext;
   }
 
-  isAutoDistillationEnabled(): boolean {
+  isContextManagementEnabled(): boolean {
     return this.contextManagement.enabled;
   }
 
@@ -2401,8 +2435,6 @@ export class Config implements McpContext, AgentLoopContext {
 
   get agentHistoryProviderConfig(): AgentHistoryProviderConfig {
     return {
-      isTruncationEnabled: this.contextManagement.enabled,
-      isSummarizationEnabled: this.contextManagement.enabled,
       maxTokens: this.contextManagement.historyWindow.maxTokens,
       retainedTokens: this.contextManagement.historyWindow.retainedTokens,
       normalMessageTokens: this.contextManagement.messageLimits.normalMaxTokens,
@@ -2459,8 +2491,8 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getGeminiMdFileCount(): number {
-    if (this.experimentalJitContext && this.contextManager) {
-      return this.contextManager.getLoadedPaths().size;
+    if (this.experimentalJitContext && this.memoryContextManager) {
+      return this.memoryContextManager.getLoadedPaths().size;
     }
     return this.geminiMdFileCount;
   }
@@ -2470,8 +2502,8 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   getGeminiMdFilePaths(): string[] {
-    if (this.experimentalJitContext && this.contextManager) {
-      return Array.from(this.contextManager.getLoadedPaths());
+    if (this.experimentalJitContext && this.memoryContextManager) {
+      return Array.from(this.memoryContextManager.getLoadedPaths());
     }
     return this.geminiMdFilePaths;
   }
@@ -3134,6 +3166,21 @@ export class Config implements McpContext, AgentLoopContext {
   }
 
   /**
+   * Returns the configured default request timeout in milliseconds.
+   */
+  getRequestTimeoutMs(): number | undefined {
+    const flag =
+      this.experiments?.flags?.[ExperimentFlags.DEFAULT_REQUEST_TIMEOUT];
+    if (flag?.intValue !== undefined) {
+      const seconds = parseInt(flag.intValue, 10);
+      if (Number.isInteger(seconds) && seconds >= 0) {
+        return seconds * 1000; // Convert seconds to milliseconds
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Returns whether Gemini 3.1 Flash Lite has been launched.
    *
    * Note: This method should only be called after startup, once experiments have been loaded.
@@ -3242,6 +3289,14 @@ export class Config implements McpContext, AgentLoopContext {
 
   getUseAlternateBuffer(): boolean {
     return this.useAlternateBuffer;
+  }
+
+  getUseTerminalBuffer(): boolean {
+    return this.useTerminalBuffer;
+  }
+
+  getUseRenderProcess(): boolean {
+    return this.useRenderProcess;
   }
 
   getEnableInteractiveShell(): boolean {
@@ -3366,6 +3421,14 @@ export class Config implements McpContext, AgentLoopContext {
 
   getGemmaModelRouterSettings(): GemmaModelRouterSettings {
     return this.gemmaModelRouter;
+  }
+
+  getAgentSessionNoninteractiveEnabled(): boolean {
+    return this.agentSessionNoninteractiveEnabled;
+  }
+
+  getAgentSessionInteractiveEnabled(): boolean {
+    return this.agentSessionInteractiveEnabled;
   }
 
   /**
@@ -3504,6 +3567,16 @@ export class Config implements McpContext, AgentLoopContext {
     maybeRegister(ShellTool, () =>
       registry.registerTool(new ShellTool(this, this.messageBus)),
     );
+    maybeRegister(ListBackgroundProcessesTool, () =>
+      registry.registerTool(
+        new ListBackgroundProcessesTool(this, this.messageBus),
+      ),
+    );
+    maybeRegister(ReadBackgroundOutputTool, () =>
+      registry.registerTool(
+        new ReadBackgroundOutputTool(this, this.messageBus),
+      ),
+    );
     if (!this.isMemoryManagerEnabled()) {
       maybeRegister(MemoryTool, () =>
         registry.registerTool(new MemoryTool(this.messageBus, this.storage)),
@@ -3514,9 +3587,6 @@ export class Config implements McpContext, AgentLoopContext {
     );
     maybeRegister(AskUserTool, () =>
       registry.registerTool(new AskUserTool(this.messageBus)),
-    );
-    maybeRegister(TtsNotificationTool, () =>
-      registry.registerTool(new TtsNotificationTool(this.messageBus)),
     );
     if (this.getUseWriteTodos()) {
       maybeRegister(WriteTodosTool, () =>
@@ -3531,6 +3601,11 @@ export class Config implements McpContext, AgentLoopContext {
         registry.registerTool(new EnterPlanModeTool(this, this.messageBus)),
       );
     }
+
+    // TERMUX PATCH: Register TTS notification tool on Android/Termux
+    maybeRegister(TtsNotificationTool, () =>
+      registry.registerTool(new TtsNotificationTool(this.messageBus)),
+    );
 
     if (this.isTrackerEnabled()) {
       maybeRegister(TrackerCreateTaskTool, () =>

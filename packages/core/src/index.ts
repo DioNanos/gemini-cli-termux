@@ -128,6 +128,7 @@ export * from './utils/constants.js';
 export * from './utils/sessionUtils.js';
 export * from './utils/cache.js';
 export * from './utils/markdownUtils.js';
+// TERMUX PATCH: Export Termux detection utility
 export * from './utils/termux-detect.js';
 
 // Export services
@@ -140,7 +141,8 @@ export * from './services/sandboxedFileSystemService.js';
 export * from './services/modelConfigService.js';
 export * from './sandbox/windows/WindowsSandboxManager.js';
 export * from './services/sessionSummaryUtils.js';
-export * from './context/contextManager.js';
+export { startMemoryService } from './services/memoryService.js';
+export * from './context/memoryContextManager.js';
 export * from './services/trackerService.js';
 export * from './services/trackerTypes.js';
 export * from './services/keychainService.js';
@@ -276,3 +278,7 @@ export * from './voice/responseFormatter.js';
 
 // Export types from @google/genai
 export type { Content, Part, FunctionCall } from '@google/genai';
+
+// Export context types and profiles
+export * from './context/types.js';
+export * from './context/profiles.js';

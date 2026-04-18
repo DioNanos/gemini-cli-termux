@@ -123,6 +123,7 @@ These are the only allowed tools:
   [`glob`](../tools/file-system.md#4-glob-findfiles)
 - **Search:** [`grep_search`](../tools/file-system.md#5-grep_search-searchtext),
   [`google_web_search`](../tools/web-search.md),
+  [`web_fetch`](../tools/web-fetch.md) (requires explicit confirmation),
   [`get_internal_docs`](../tools/internal-docs.md)
 - **Research Subagents:**
   [`codebase_investigator`](../core/subagents.md#codebase-investigator),
@@ -439,6 +440,10 @@ on the current phase of your task:
     the CLI detects the existence of the approved plan and automatically
     switches to a high-speed **Flash** model. This provides a faster, more
     responsive experience during the implementation of the plan.
+
+If the high-reasoning model is unavailable or you don't have access to it,
+Gemini CLI automatically and silently falls back to a faster model to ensure
+your workflow isn't interrupted.
 
 This behavior is enabled by default to provide the best balance of quality and
 performance. You can disable this automatic switching in your settings:

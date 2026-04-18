@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.37.1-termux",
+  "version": "0.38.2-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -8,16 +8,17 @@
   "workspaces": [
     "packages/*"
   ],
-  "private": false,
+  "private": "true",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DioNanos/gemini-cli-termux.git"
+    "url": "git+https://github.com/google-gemini/gemini-cli.git"
   },
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.37.1-termux"
+    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.38.2-termux"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",
+    "start:prod": "cross-env NODE_ENV=production node scripts/start.js",
     "start:a2a-server": "CODER_AGENT_PORT=41242 npm run start --workspace @google/gemini-cli-a2a-server",
     "debug": "cross-env DEBUG=1 node --inspect-brk scripts/start.js",
     "deflake": "node scripts/deflake.js",
@@ -42,10 +43,13 @@
     "test": "npm run test --workspaces --if-present && npm run test:sea-launch",
     "test:ci": "npm run test:ci --workspaces --if-present && npm run test:scripts && npm run test:sea-launch",
     "test:scripts": "vitest run --config ./scripts/tests/vitest.config.ts",
+    "test:sea-launch": "vitest run sea/sea-launch.test.js",
+    "posttest": "npm run build",
     "test:always_passing_evals": "vitest run --config evals/vitest.config.ts",
     "test:all_evals": "cross-env RUN_EVALS=1 vitest run --config evals/vitest.config.ts",
     "test:e2e": "cross-env VERBOSE=true KEEP_OUTPUT=true npm run test:integration:sandbox:none",
     "test:integration:all": "npm run test:integration:sandbox:none && npm run test:integration:sandbox:docker && npm run test:integration:sandbox:podman",
+    "test:integration:flaky": "cross-env RUN_FLAKY_INTEGRATION=1 npm run test:integration:sandbox:none",
     "test:integration:sandbox:none": "cross-env GEMINI_SANDBOX=false vitest run --root ./integration-tests",
     "test:integration:sandbox:docker": "cross-env GEMINI_SANDBOX=docker npm run build:sandbox && cross-env GEMINI_SANDBOX=docker vitest run --root ./integration-tests",
     "test:integration:sandbox:podman": "cross-env GEMINI_SANDBOX=podman vitest run --root ./integration-tests",
@@ -61,42 +65,32 @@
     "release:version": "node scripts/version.js",
     "telemetry": "node scripts/telemetry.js",
     "check:lockfile": "node scripts/check-lockfile.js",
-    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "clean": "node scripts/clean.js",
     "pre-commit": "node scripts/pre-commit.js",
-    "postinstall": "node scripts/postinstall.cjs || true",
-    "prepublishOnly": "npm run build && npm run bundle"
+    "postinstall": "node scripts/postinstall.cjs || true"
   },
   "overrides": {
-    "ink": "npm:@jrichman/ink@6.6.3",
+    "ink": "npm:@jrichman/ink@6.6.7",
     "wrap-ansi": "9.0.2",
     "cliui": {
       "wrap-ansi": "7.0.0"
     },
     "glob": "^12.0.0",
-    "node-domexception": "^1.0.0",
-    "tar": "^7.5.11",
-    "rollup": "^4.59.0",
-    "minimatch": "^10.2.4",
-    "@hono/node-server": "^1.19.11",
-    "hono": "^4.12.5",
-    "express-rate-limit": "^8.3.1"
+    "node-domexception": "npm:empty@^0.10.1",
+    "prebuild-install": "npm:nop@1.0.0",
+    "cross-spawn": "^7.0.6",
+    "minimatch": "^10.2.2"
   },
   "bin": {
-    "gemini": "./bundle/gemini.js"
+    "gemini": "bundle/gemini.js"
   },
   "files": [
     "bundle/",
-    "packages/cli/dist/",
-    "packages/cli/index.js",
-    "packages/core/dist/",
-    "packages/test-utils/dist/",
-    "scripts/postinstall.cjs",
     "README.md",
     "LICENSE"
   ],
   "devDependencies": {
-    "@agentclientprotocol/sdk": "^0.12.0",
+    "@agentclientprotocol/sdk": "^0.16.1",
     "@octokit/rest": "^22.0.0",
     "@types/marked": "^5.0.2",
     "@types/mime-types": "^3.0.1",
@@ -112,12 +106,13 @@
     "@vitest/eslint-plugin": "^1.3.4",
     "cross-env": "^7.0.3",
     "depcheck": "^1.4.7",
+    "domexception": "^4.0.0",
     "esbuild": "^0.25.0",
     "esbuild-plugin-wasm": "^1.1.0",
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-headers": "^1.3.3",
-    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "glob": "^12.0.0",
@@ -144,14 +139,24 @@
   },
   "dependencies": {
     "@mmmbuto/pty-termux-utils": "^1.1.4",
-    "ink": "npm:@jrichman/ink@6.6.3",
+    "ink": "npm:@jrichman/ink@6.6.7",
     "latest-version": "^9.0.0",
+    "node-fetch-native": "^1.6.7",
     "proper-lockfile": "^4.1.2",
     "punycode": "^2.3.1",
+    "read-package-up": "^12.0.0",
     "simple-git": "^3.28.0"
   },
   "optionalDependencies": {
-    "@esbuild/android-arm64": "^0.27.1"
+    "@esbuild/android-arm64": "^0.27.1",
+    "@lydell/node-pty": "1.1.0",
+    "@lydell/node-pty-darwin-arm64": "1.1.0",
+    "@lydell/node-pty-darwin-x64": "1.1.0",
+    "@lydell/node-pty-linux-x64": "1.1.0",
+    "@lydell/node-pty-win32-arm64": "1.1.0",
+    "@lydell/node-pty-win32-x64": "1.1.0",
+    "keytar": "^7.9.0",
+    "node-pty": "^1.0.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
