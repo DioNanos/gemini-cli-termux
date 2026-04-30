@@ -12,6 +12,7 @@ import { debugLogger } from '../index.js';
 import {
   BaseDeclarativeTool,
   BaseToolInvocation,
+  type ExecuteOptions,
   type ToolResult,
   Kind,
 } from './tools.js';
@@ -110,7 +111,7 @@ export class TtsNotificationInvocation extends BaseToolInvocation<
     return false;
   }
 
-  async execute(_signal: AbortSignal): Promise<ToolResult> {
+  async execute(_options: ExecuteOptions): Promise<ToolResult> {
     // Check if TTS is enabled in settings
     if (!isTermux()) {
       const msg = 'TTS notifications are only available on Termux.';
