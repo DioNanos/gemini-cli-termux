@@ -100,6 +100,7 @@ export {
   PRIORITY_YOLO_ALLOW_ALL,
 } from './policy/types.js';
 export * from './utils/tool-utils.js';
+export * from './utils/tool-visibility.js';
 export * from './utils/terminalSerializer.js';
 export * from './utils/systemEncoding.js';
 export * from './utils/textUtils.js';
@@ -141,7 +142,11 @@ export * from './services/sandboxedFileSystemService.js';
 export * from './services/modelConfigService.js';
 export * from './sandbox/windows/WindowsSandboxManager.js';
 export * from './services/sessionSummaryUtils.js';
-export { startMemoryService } from './services/memoryService.js';
+export {
+  startMemoryService,
+  validatePatches,
+} from './services/memoryService.js';
+export { isProjectSkillPatchTarget } from './services/memoryPatchUtils.js';
 export * from './context/memoryContextManager.js';
 export * from './services/trackerService.js';
 export * from './services/trackerTypes.js';
@@ -195,6 +200,7 @@ export * from './agent/agent-session.js';
 export * from './agent/legacy-agent-session.js';
 export * from './agent/event-translator.js';
 export * from './agent/content-utils.js';
+export * from './agent/tool-display-utils.js';
 // Agent event types — namespaced to avoid collisions with existing exports
 export type {
   AgentEvent,
@@ -206,6 +212,7 @@ export type {
   AgentProtocol,
   AgentSend,
   AgentStart,
+  AgentMessage,
   ContentPart,
   ErrorData,
   StreamEndReason,
@@ -213,6 +220,13 @@ export type {
   Unsubscribe,
   Usage as AgentUsage,
   WithMeta,
+  ToolRequest,
+  ToolResponse,
+  ToolUpdate,
+  ToolDisplay,
+  DisplayText,
+  DisplayDiff,
+  DisplayContent,
 } from './agent/types.js';
 
 // Export specific tool logic
@@ -254,7 +268,7 @@ export * from './telemetry/index.js';
 export * from './telemetry/billingEvents.js';
 export { logBillingEvent } from './telemetry/loggers.js';
 export * from './telemetry/constants.js';
-export { sessionId, createSessionId } from './utils/session.js';
+export { createSessionId } from './utils/session.js';
 export * from './utils/compatibility.js';
 export * from './utils/browser.js';
 export { Storage } from './config/storage.js';
@@ -282,3 +296,6 @@ export type { Content, Part, FunctionCall } from '@google/genai';
 // Export context types and profiles
 export * from './context/types.js';
 export * from './context/profiles.js';
+
+// Export trust utility
+export * from './utils/trust.js';
