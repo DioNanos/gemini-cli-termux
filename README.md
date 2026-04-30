@@ -9,9 +9,9 @@
 
 </div>
 
-> News (2026-04-18): `v0.40.0-termux` rebases the fork onto upstream `v0.40.0`
-> and fixes npm/GitHub packaging hygiene. Restored: fork README, update command,
-> release docs, publish metadata, and clean Termux release flow.
+> News (2026-04-30): the current `next` candidate packages
+> `0.42.0-nightly.20260428.g59b2dea0e-termux` for Termux validation before
+> promotion.
 
 Gemini CLI Termux is a clean fork of
 [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli), rebuilt
@@ -53,12 +53,12 @@ Requirements:
 - Node.js 20+
 - `termux-api` only if you want TTS notifications
 
-### Test channel
+### Next channel
 
 Use this to validate the current candidate before promotion to `latest`:
 
 ```bash
-npm install -g @mmmbuto/gemini-cli-termux@test
+npm install -g @mmmbuto/gemini-cli-termux@next
 gemini --version
 ```
 
@@ -173,8 +173,9 @@ upstream.
 
 ## License
 
-Apache-2.0 releases will not have been fully vetted and may contain regressions
-or other outstanding issues. Please help us test and install with `preview` tag.
+Apache-2.0. Candidate releases have not been fully vetted and may contain
+regressions or other outstanding issues. Please help us test and install with
+`preview` tag.
 
 ```bash
 npm install -g @google/gemini-cli@preview
