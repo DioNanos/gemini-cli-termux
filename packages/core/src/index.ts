@@ -129,8 +129,6 @@ export * from './utils/constants.js';
 export * from './utils/sessionUtils.js';
 export * from './utils/cache.js';
 export * from './utils/markdownUtils.js';
-// TERMUX PATCH: Export Termux detection utility
-export * from './utils/termux-detect.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';
@@ -295,7 +293,21 @@ export type { Content, Part, FunctionCall } from '@google/genai';
 
 // Export context types and profiles
 export * from './context/types.js';
-export * from './context/profiles.js';
+
+export { generalistProfile as legacyGeneralistProfile } from './context/profiles.js';
+export {
+  generalistProfile,
+  stressTestProfile,
+} from './context/config/profiles.js';
 
 // Export trust utility
 export * from './utils/trust.js';
+
+// Export voice utilities
+export * from './voice/audioRecorder.js';
+export * from './voice/transcriptionProvider.js';
+export * from './voice/geminiLiveTranscriptionProvider.js';
+export * from './voice/whisperTranscriptionProvider.js';
+export * from './voice/transcriptionFactory.js';
+export * from './voice/whisperModelManager.js';
+export { isBinaryAvailable } from './utils/binaryCheck.js';

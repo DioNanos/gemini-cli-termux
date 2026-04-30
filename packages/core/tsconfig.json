@@ -11,11 +11,5 @@
     }
   },
   "include": ["index.ts", "src/**/*.ts", "src/**/*.json"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/context/contextManager.barrier.test.ts",
-    "src/context/system-tests/**",
-    "src/context/testing/**"
-  ]
+  "exclude": ["node_modules", "dist"]
 }
