@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.38.3-termux",
+  "version": "0.40.0-termux",
   "description": "Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).",
   "engines": {
     "node": ">=20.0.0"

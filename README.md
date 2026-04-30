@@ -9,7 +9,7 @@
 
 </div>
 
-> News (2026-04-18): `v0.38.3-termux` rebases the fork onto upstream `v0.38.2`
+> News (2026-04-18): `v0.40.0-termux` rebases the fork onto upstream `v0.40.0`
 > and fixes npm/GitHub packaging hygiene. Restored: fork README, update command,
 > release docs, publish metadata, and clean Termux release flow.
 
