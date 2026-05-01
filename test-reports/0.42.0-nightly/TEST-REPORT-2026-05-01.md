@@ -10,8 +10,8 @@ google-gemini/gemini-cli v0.42.0
 
 | Parameter          | Value                            |
 | ------------------ | -------------------------------- |
-| **Device**         | Pixel 9 Pro                      |
-| **OS**             | Android 16 (API 36)              |
+| **Device**         | Android ARM64 Termux device      |
+| **OS**             | Android                          |
 | **CPU**            | arm64-v8a (aarch64)              |
 | **Kernel**         | 6.1.145-android14-11             |
 | **Node.js**        | v25.8.2                          |
@@ -94,7 +94,7 @@ google-gemini/gemini-cli v0.42.0
 | ---------------------- | ------- | ------------------------------------------------------ |
 | File read/write        | ✅ PASS | (As per previous report) File operations work          |
 | Shell commands         | ✅ PASS | (As per previous report) Shell execution via PTY works |
-| MCP server list/config | ✅ PASS | Correctly identified servers from context files.       |
+| MCP server list/config | ✅ PASS | Correctly listed configured servers.                   |
 
 ### 5. UI & Theming
 
@@ -150,4 +150,4 @@ features require manual visual or interactive validation.)
 ## Next Steps
 
 1. Manually validate all `UNTESTABLE` features.
-2. Promote `@test` tag to `@latest` after all manual tests pass.
+2. Continue reporting any Termux-specific regressions against this release.

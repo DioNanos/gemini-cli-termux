@@ -91,7 +91,7 @@ Ensure `gemini` is available in your PATH.
       `gemini -p "Execute 'echo Hello from shell'"`. Verify output.
 - [ ] MCP servers can be configured and listed: Instruct
       `gemini -p "List configured MCP servers"`. Verify output shows expected
-      server names (e.g., VPS1, VPS3).
+      configured server names.
 
 ### 5. UI & Theming Tests
 

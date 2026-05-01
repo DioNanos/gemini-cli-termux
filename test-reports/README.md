@@ -17,14 +17,13 @@ test-reports/
 
 ## Latest Report
 
-- [**0.37.1-termux** — TEST-REPORT-2026-04-13](./0.37.1-termux/TEST-REPORT-2026-04-13.md)
+- [**0.42.0-nightly** — TEST-REPORT-2026-05-01](./0.42.0-nightly/TEST-REPORT-2026-05-01.md)
 
 ## Report Archive
 
-| Version       | Date       | Report                                                              |
-| ------------- | ---------- | ------------------------------------------------------------------- |
-| 0.37.1-termux | 2026-04-13 | [TEST-REPORT-2026-04-13](./0.37.1-termux/TEST-REPORT-2026-04-13.md) |
-| 0.35.2-termux | 2026-03-27 | [TEST-REPORT-2026-03-27](./0.35.2-termux/TEST-REPORT-2026-03-27.md) |
+| Version        | Date       | Report                                                               |
+| -------------- | ---------- | -------------------------------------------------------------------- |
+| 0.42.0-nightly | 2026-05-01 | [TEST-REPORT-2026-05-01](./0.42.0-nightly/TEST-REPORT-2026-05-01.md) |
 
 ## Quick Start
 
