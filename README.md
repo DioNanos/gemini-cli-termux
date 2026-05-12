@@ -171,6 +171,19 @@ This fork is based on [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 and exists to keep a release-quality Termux track with minimal divergence from
 upstream.
 
+## Fork maintainer contact
+
+This is a Termux/Android-focused fork maintained by [DioNanos](https://github.com/DioNanos).
+
+- Fork issues (build, packaging, mobile-specific bugs): **dev@mmmbuto.com**
+- Fork security disclosures: **security@mmmbuto.com**
+- Project hub: <https://mmmbuto.com>
+
+For upstream-relevant issues that are not Termux/Android specific, please open
+them on [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli).
+For broader fork-specific questions, use
+[GitHub Discussions](../../discussions) on this repo.
+
 ## License
 
 Apache-2.0. Candidate releases have not been fully vetted and may contain
