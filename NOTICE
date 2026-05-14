@@ -1,0 +1,14 @@
+Gemini CLI
+Copyright Google LLC
+Copyright 2026 Davide A. Guglielmi
+
+Gemini CLI Termux is a porting/distribution fork of Google's Gemini CLI for
+Android ARM64 (Termux). It carries only the Android/Termux compatibility
+delta needed to package and run upstream Gemini CLI on Termux (PTY support
+via @mmmbuto/pty-termux-utils, termux-open-url integration for auth/browser
+flows, optional tts_notification backed by termux-tts-speak, Termux
+environment detection). These compatibility patches are maintained by
+Davide A. Guglielmi and distributed under the Apache License, Version 2.0
+together with the upstream Gemini CLI codebase.
+
+Upstream project: https://github.com/google-gemini/gemini-cli
