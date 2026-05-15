@@ -29,6 +29,10 @@ export class GcpTraceExporter extends TraceExporter {
       resourceFilter: /^gcp\./,
     });
   }
+
+  async forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 /**
