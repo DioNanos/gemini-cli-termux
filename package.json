@@ -172,6 +172,6 @@
       "prettier --write"
     ]
   },
-  "description": "Android/Termux-focused fork of Google Gemini CLI (`google-gemini/gemini-cli`).",
+  "description": "[EOL 18 June 2026] Android/Termux-focused fork of Google Gemini CLI. Upstream free-tier and Google AI Pro/Ultra OAuth backend is being shut down by Google on 18 June 2026 in favour of Antigravity CLI. Fork frozen at 0.42.0-termux as an Apache-2.0 archive for study and reference. Per aspera ad astra.",
   "homepage": "https://github.com/DioNanos/gemini-cli-termux#readme"
 }

@@ -3,13 +3,30 @@
 [![npm version](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
+> ⚠️ **End-of-life — 18 June 2026**
+>
+> On **18 June 2026** Google stops serving Gemini CLI requests for the Google AI
+> free tier, Google AI Pro and Google AI Ultra, including the OAuth path used by
+> most Termux users. Free-tier users are being migrated upstream to
+> [Antigravity CLI](https://antigravity.google/docs/gcli-migration).
+>
+> Upstream `google-gemini/gemini-cli` remains Apache-2.0 open source, but only
+> enterprise paid API keys (Vertex AI, Gemini Enterprise, Gemini Code Assist
+> Standard/Enterprise) keep working after that date.
+>
+> **This fork is frozen at `0.42.0-termux` (last upstream stable before EOL) and
+> will not be updated further.** No more upstream tracking, no more releases.
+> The repository stays as an Apache-2.0 working archive for study and reference.
+>
+> _Per aspera ad astra._
+
 Termux-first build of [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 for Android ARM64.
 
-This fork tracks upstream release-by-release and keeps the fork delta limited to
+This fork tracked upstream release-by-release with the fork delta limited to
 Android/Termux compatibility, packaging, and validation assets.
 
-Current fork release: `0.42.0-termux`.
+Final fork release: `0.42.0-termux` (frozen, EOL 18 June 2026).
 
 ## Install
 
