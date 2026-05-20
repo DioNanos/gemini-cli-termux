@@ -6,8 +6,6 @@ updates:
       interval: 'weekly'
       day: 'monday'
     open-pull-requests-limit: 10
-    reviewers:
-      - 'joshualitt'
     groups:
       npm-dependencies:
         patterns:
@@ -22,8 +20,6 @@ updates:
       interval: 'weekly'
       day: 'monday'
     open-pull-requests-limit: 10
-    reviewers:
-      - 'joshualitt'
     groups:
       actions-dependencies:
         patterns:

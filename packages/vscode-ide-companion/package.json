@@ -3,6 +3,7 @@
   "displayName": "Gemini CLI Companion",
   "description": "Enable Gemini CLI with direct access to your IDE workspace.",
   "version": "0.42.0",
+  "private": true,
   "publisher": "google",
   "icon": "assets/icon.png",
   "repository": {

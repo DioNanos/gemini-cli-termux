@@ -23,7 +23,7 @@ Ensure `gemini` is available in your PATH.
 ### 1. Installation & Basic Functionality Tests
 
 - [ ] Package installs without errors (observe `npm install` output)
-- [ ] `gemini --version` returns `0.37.1-termux` (or current expected version)
+- [ ] `gemini --version` returns `0.42.0-termux` (or current expected version)
 - [ ] Global bin link is created (`which gemini` should output a path like
       `$PREFIX/bin/gemini`)
 - [ ] `gemini --help` displays help message correctly
@@ -46,7 +46,7 @@ Ensure `gemini` is available in your PATH.
       requires browser interaction, verify it launches and reconnects without
       issues after closing/reopening CLI.
 
-### 2b. v0.37.1 New Features Tests
+### 2b. Current upstream feature checks
 
 - [ ] Persistent browser session management: Open a browser auth flow, close
       CLI, reopen — session should persist and reconnect

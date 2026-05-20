@@ -1,13 +1,15 @@
-name: 'Bug Report'
-description: 'Report a bug to help us improve Gemini CLI'
+name: 'Termux Bug Report'
+description: 'Report a Termux/Android issue in Gemini CLI Termux'
 body:
   - type: 'markdown'
     attributes:
       value: |-
         > [!IMPORTANT]
-        > Thanks for taking the time to fill out this bug report!
+        > Thanks for taking the time to fill out this bug report.
         >
-        > Please search **[existing issues](https://github.com/google-gemini/gemini-cli/issues)** to see if an issue already exists for the bug you encountered.
+        > Use this tracker for Termux/Android packaging and runtime issues.
+        > Generic Gemini CLI issues should be reported upstream at
+        > https://github.com/google-gemini/gemini-cli/issues.
 
   - type: 'textarea'
     id: 'problem'
@@ -28,7 +30,7 @@ body:
     id: 'info'
     attributes:
       label: 'Client information'
-      description: 'Please paste the full text from the `/about` command run from Gemini CLI. Also include which platform (macOS, Windows, Linux). Note that this output contains your email address. Consider removing it before submitting.'
+      description: 'Please paste the full text from the `/about` command. Remove your email address before submitting if present.'
       value: |-
         <details>
         <summary>Client Information</summary>
@@ -45,10 +47,10 @@ body:
       required: true
 
   - type: 'textarea'
-    id: 'login-info'
+    id: 'termux-info'
     attributes:
-      label: 'Login information'
-      description: 'Describe how you are logging in (e.g., Google Account, API key).'
+      label: 'Termux information'
+      description: 'Include Android device, Android version, Termux source, Node.js version, and install command.'
 
   - type: 'textarea'
     id: 'additional-context'

@@ -1,16 +1,15 @@
-name: 'Feature Request'
-description: 'Suggest an idea for this project'
-labels:
-  - 'status/need-triage'
-type: 'Feature'
+name: 'Termux Feature Request'
+description: 'Suggest a Termux/Android compatibility improvement'
 body:
   - type: 'markdown'
     attributes:
       value: |-
         > [!IMPORTANT]
-        > Thanks for taking the time to suggest an enhancement!
+        > Thanks for taking the time to suggest an enhancement.
         >
-        > Please search **[existing issues](https://github.com/google-gemini/gemini-cli/issues)** to see if a similar feature has already been requested.
+        > This fork only carries Termux/Android compatibility changes.
+        > Generic Gemini CLI feature requests belong upstream:
+        > https://github.com/google-gemini/gemini-cli/issues.
 
   - type: 'textarea'
     id: 'feature'

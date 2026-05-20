@@ -1,17 +1,12 @@
-name: 'Website issue'
-description: 'Report an issue with the Gemini CLI Website and Gemini CLI Extensions Gallery'
-title: 'GeminiCLI.com Feedback: [ISSUE]'
-labels:
-  - 'area/extensions'
-  - 'area/documentation'
+name: 'Documentation issue'
+description: 'Report an issue with this fork documentation'
+title: 'Docs: [ISSUE]'
 body:
   - type: 'markdown'
     attributes:
       value: |-
         > [!IMPORTANT]
-        > Thanks for taking the time to report an issue with the Gemini CLI Website
-        >
-        > Please search **[existing issues](https://github.com/google-gemini/gemini-cli/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fwebsite)**  to see if a similar feature has already been requested.
+        > Report only documentation issues in this Termux fork.
   - type: 'input'
     id: 'url'
     attributes:

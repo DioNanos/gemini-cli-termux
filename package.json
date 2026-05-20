@@ -14,7 +14,7 @@
     "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "us-docker.pkg.dev/gemini-code-dev/gemini-cli/sandbox:0.42.0-termux"
+    "sandboxImageUri": "ghcr.io/mmmbuto/gemini-cli-termux:0.42.0-termux"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",
@@ -24,9 +24,6 @@
     "deflake": "node scripts/deflake.js",
     "deflake:test:integration:sandbox:none": "npm run deflake -- --command=\"npm run test:integration:sandbox:none -- --retry=0\"",
     "deflake:test:integration:sandbox:docker": "npm run deflake -- --command=\"npm run test:integration:sandbox:docker -- --retry=0\"",
-    "auth:npm": "npx google-artifactregistry-auth",
-    "auth:docker": "gcloud auth configure-docker us-west1-docker.pkg.dev",
-    "auth": "npm run auth:npm && npm run auth:docker",
     "generate": "node scripts/generate-git-commit-info.js",
     "predocs:settings": "npm run build --workspace @google/gemini-cli-core",
     "schema:settings": "tsx ./scripts/generate-settings-schema.ts",
@@ -123,7 +120,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "glob": "^12.0.0",
     "globals": "^16.0.0",
-    "google-artifactregistry-auth": "^3.4.0",
     "husky": "^9.1.7",
     "json": "^11.0.0",
     "lint-staged": "^16.1.6",

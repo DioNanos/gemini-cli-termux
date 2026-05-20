@@ -7,7 +7,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { wasmLoader } from 'esbuild-plugin-wasm';
 
 let esbuild;
@@ -126,6 +126,8 @@ const a2aServerConfig = {
   plugins: createWasmPlugins(),
   alias: commonAliases,
 };
+
+rmSync(path.resolve(__dirname, 'bundle'), { recursive: true, force: true });
 
 Promise.allSettled([
   esbuild.build(cliConfig).then(({ metafile }) => {
