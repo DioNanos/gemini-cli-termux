@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.42.0-termux",
+  "version": "0.46.0-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -14,7 +14,7 @@
     "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "ghcr.io/mmmbuto/gemini-cli-termux:0.42.0-termux"
+    "sandboxImageUri": "ghcr.io/mmmbuto/gemini-cli-termux:0.46.0-termux"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",

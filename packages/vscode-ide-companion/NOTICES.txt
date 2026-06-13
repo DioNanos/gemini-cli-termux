@@ -2289,7 +2289,7 @@ THE SOFTWARE.
 
 
 ============================================================
-hono@4.12.21
+hono@4.12.18
 (git+https://github.com/honojs/hono.git)
 
 MIT License

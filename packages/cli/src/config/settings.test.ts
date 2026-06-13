@@ -1109,6 +1109,77 @@ describe('Settings Loading and Merging', () => {
       });
     });
 
+    describe('LoadedSettings MCP consolidation', () => {
+      it('should consolidate mcp excluded list across all scopes', () => {
+        const loaded = new LoadedSettings(
+          {
+            path: '',
+            settings: { mcp: { excluded: ['system-excluded'] } },
+            originalSettings: {},
+          },
+          {
+            path: '',
+            settings: { mcp: { excluded: ['defaults-excluded'] } },
+            originalSettings: {},
+          },
+          {
+            path: '',
+            settings: { mcp: { excluded: ['user-excluded'] } },
+            originalSettings: {},
+          },
+          {
+            path: '',
+            settings: { mcp: { excluded: ['workspace-excluded'] } },
+            originalSettings: {},
+          },
+          true,
+        );
+
+        expect(loaded.getConsolidatedExcludedMcpServers()).toEqual([
+          'system-excluded',
+          'defaults-excluded',
+          'user-excluded',
+          'workspace-excluded',
+        ]);
+      });
+
+      it('should consolidate allowed mcp list via case-insensitive intersection', () => {
+        const loaded = new LoadedSettings(
+          {
+            path: '',
+            settings: { mcp: { allowed: ['Server-A', 'Server-B'] } },
+            originalSettings: {},
+          },
+          {
+            path: '',
+            settings: { mcp: { allowed: ['server-a', 'Server-C'] } },
+            originalSettings: {},
+          },
+          { path: '', settings: {}, originalSettings: {} }, // no allowlist in user
+          {
+            path: '',
+            settings: { mcp: { allowed: ['SERVER-A', 'Server-D'] } },
+            originalSettings: {},
+          },
+          true,
+        );
+
+        expect(loaded.getConsolidatedAllowedMcpServers()).toEqual(['Server-A']);
+      });
+
+      it('should return undefined allowed list if no scopes define one', () => {
+        const loaded = new LoadedSettings(
+          { path: '', settings: {}, originalSettings: {} },
+          { path: '', settings: {}, originalSettings: {} },
+          { path: '', settings: {}, originalSettings: {} },
+          { path: '', settings: {}, originalSettings: {} },
+          true,
+        );
+
+        expect(loaded.getConsolidatedAllowedMcpServers()).toBeUndefined();
+      });
+    });
+
     describe('compressionThreshold settings', () => {
       it.each([
         {
@@ -3003,6 +3074,44 @@ describe('Settings Loading and Merging', () => {
       const snap1 = loadedSettings.getSnapshot();
       const snap2 = loadedSettings.getSnapshot();
       expect(snap1).toBe(snap2);
+    });
+
+    it('getSnapshot() should preserve readOnly metadata for each scope', () => {
+      const readonlySettings = new LoadedSettings(
+        {
+          path: getSystemSettingsPath(),
+          settings: {},
+          originalSettings: {},
+          readOnly: true,
+        },
+        {
+          path: getSystemDefaultsPath(),
+          settings: {},
+          originalSettings: {},
+          readOnly: true,
+        },
+        {
+          path: USER_SETTINGS_PATH,
+          settings: {},
+          originalSettings: {},
+          readOnly: false,
+        },
+        {
+          path: MOCK_WORKSPACE_SETTINGS_PATH,
+          settings: {},
+          originalSettings: {},
+          readOnly: true,
+        },
+        true,
+        [],
+      );
+
+      const snapshot = readonlySettings.getSnapshot();
+
+      expect(snapshot.system.readOnly).toBe(true);
+      expect(snapshot.systemDefaults.readOnly).toBe(true);
+      expect(snapshot.user.readOnly).toBe(false);
+      expect(snapshot.workspace.readOnly).toBe(true);
     });
 
     it('setValue() should create a new snapshot reference and emit event', () => {
