@@ -159,12 +159,16 @@ async function getServerStatus(
   server: MCPServerConfig,
   isTrusted: boolean,
   activeSettings: MergedSettings,
+  consolidatedExcluded: string[],
+  consolidatedAllowed: string[] | undefined,
 ): Promise<MCPServerStatus> {
   const mcpEnablementManager = McpServerEnablementManager.getInstance();
+
   const loadResult = await canLoadServer(serverName, {
     adminMcpEnabled: activeSettings.admin?.mcp?.enabled ?? true,
-    allowedList: activeSettings.mcp?.allowed,
-    excludedList: activeSettings.mcp?.excluded,
+    allowedList: consolidatedAllowed,
+    excludedList:
+      consolidatedExcluded.length > 0 ? consolidatedExcluded : undefined,
     enablement: mcpEnablementManager.getEnablementCallbacks(),
   });
 
@@ -179,6 +183,10 @@ async function getServerStatus(
     return MCPServerStatus.DISABLED;
   }
 
+  if (!isTrusted) {
+    return MCPServerStatus.DISABLED;
+  }
+
   // Test all server types by attempting actual connection
   return testMCPConnection(serverName, server, isTrusted, activeSettings);
 }
@@ -189,8 +197,14 @@ export async function listMcpServers(
   const loadedSettings = loadedSettingsArg ?? loadSettings();
   const activeSettings = loadedSettings.merged;
 
+  // If the folder is untrusted, we want to show all configured servers (including
+  // project-scoped ones) as disabled.
+  const allSettings = !loadedSettings.isTrusted
+    ? loadedSettings.getMergedSettingsAsIfTrusted()
+    : activeSettings;
+
   const { mcpServers, blockedServerNames } =
-    await getMcpServersFromConfig(activeSettings);
+    await getMcpServersFromConfig(allSettings);
   const serverNames = Object.keys(mcpServers);
 
   if (blockedServerNames.length > 0) {
@@ -208,6 +222,19 @@ export async function listMcpServers(
     return;
   }
 
+  if (!loadedSettings.isTrusted) {
+    debugLogger.log(
+      chalk.yellow(
+        'Warning: MCP servers are configured but disabled because this folder is untrusted.\n' +
+          'User-level servers are also suppressed in untrusted folders to prevent accidental side-effects.\n',
+      ),
+    );
+  }
+
+  const consolidatedExcluded =
+    loadedSettings.getConsolidatedExcludedMcpServers();
+  const consolidatedAllowed = loadedSettings.getConsolidatedAllowedMcpServers();
+
   debugLogger.log('Configured MCP servers:\n');
 
   for (const serverName of serverNames) {
@@ -218,6 +245,8 @@ export async function listMcpServers(
       server,
       loadedSettings.isTrusted,
       activeSettings,
+      consolidatedExcluded,
+      consolidatedAllowed,
     );
 
     let statusIndicator = '';

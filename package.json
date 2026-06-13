@@ -1,6 +1,6 @@
 {
   "name": "@mmmbuto/gemini-cli-termux",
-  "version": "0.42.0-termux",
+  "version": "0.46.0-termux",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -14,7 +14,7 @@
     "url": "git+https://github.com/DioNanos/gemini-cli-termux.git"
   },
   "config": {
-    "sandboxImageUri": "ghcr.io/mmmbuto/gemini-cli-termux:0.42.0-termux"
+    "sandboxImageUri": "ghcr.io/mmmbuto/gemini-cli-termux:0.46.0-termux"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development node scripts/start.js",
@@ -172,6 +172,6 @@
       "prettier --write"
     ]
   },
-  "description": "[EOL scheduled 18 June 2026] Android/Termux-focused fork of Google Gemini CLI. Google will stop serving free-tier and Google AI Pro/Ultra OAuth Gemini CLI requests on 18 June 2026; upstream points users to Antigravity CLI. Fork frozen at 0.42.0-termux as an Apache-2.0 archive for study and reference.",
+  "description": "[EOL scheduled 18 June 2026] Android/Termux-focused fork of Google Gemini CLI. Google will stop serving free-tier and Google AI Pro/Ultra OAuth Gemini CLI requests on 18 June 2026; upstream points users to Antigravity CLI. Fork refreshed one last time to 0.46.0-termux (one-time courtesy update past the freeze) as an Apache-2.0 archive for study and reference.",
   "homepage": "https://github.com/DioNanos/gemini-cli-termux#readme"
 }
