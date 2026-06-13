@@ -14,10 +14,11 @@
 > paid enterprise paths (Vertex AI, Gemini Enterprise, Gemini Code Assist
 > Standard/Enterprise) are expected to keep working after that date.
 >
-> **This fork is frozen at `0.42.0-termux` (last upstream stable before the
-> scheduled EOL) and will not be updated further.** No more upstream tracking,
-> no more releases. The repository stays as an Apache-2.0 working archive for
-> study and reference.
+> **Despite the scheduled EOL, this fork has been refreshed one last time to
+> `0.46.0-termux`** to align with the final upstream stable line. This is a
+> one-time courtesy update past the freeze; no further upstream tracking is
+> planned. The repository stays as an Apache-2.0 working archive for study and
+> reference.
 >
 > _Per aspera ad astra._
 
@@ -27,8 +28,8 @@ for Android ARM64.
 This fork tracked upstream release-by-release with the fork delta limited to
 Android/Termux compatibility, packaging, and validation assets.
 
-Final fork release: `0.42.0-termux` (frozen; consumer EOL effective 18 June
-2026).
+Latest fork release: `0.46.0-termux` (one-time refresh past the freeze;
+consumer EOL effective 18 June 2026).
 
 ## Install
 
