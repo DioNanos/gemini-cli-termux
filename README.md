@@ -1,3 +1,12 @@
+> [!WARNING]
+> ## End of Life
+>
+> **This project has reached end of life and is no longer maintained.**
+>
+> A final release aligned with the latest upstream version will be published
+> when possible. After that, no further updates, bug fixes, or support are
+> planned. Existing releases remain available as-is.
+
 # Gemini CLI Termux
 
 [![npm version](https://img.shields.io/npm/v/@mmmbuto/gemini-cli-termux.svg)](https://www.npmjs.com/package/@mmmbuto/gemini-cli-termux)
